@@ -1,0 +1,30 @@
+app:
+  timezone: "Asia/Seoul"
+  schedule:
+    cron: "0 0 8 * * *"
+  openai:
+    enabled: "${OPENAI_ENABLED:false}"
+    apiKey: "${OPENAI_API_KEY:}"
+    model: "${OPENAI_MODEL:gpt-4.1-mini}"
+  slack:
+    enabled: "${SLACK_ENABLED:false}"
+    webhookUrl: "${SLACK_WEBHOOK_URL:}"
+  mail:
+    enabled: "${MAIL_ENABLED:false}"
+    to: "${MAIL_TO:}"
+
+spring:
+  datasource:
+    url: "${DB_URL:jdbc:postgresql://localhost:5432/dmib}"
+    username: "${DB_USERNAME:dmib}"
+    password: "${DB_PASSWORD:dmib}"
+    driver-class-name: "org.postgresql.Driver"
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+logging:
+  level:
+    root: INFO
