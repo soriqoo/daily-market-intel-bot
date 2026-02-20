@@ -9,6 +9,9 @@
 /gradlew text eol=lf
 gradlew text eol=lf
 
+/gradle/wrapper/gradle-wrapper.jar binary
+*.jar binary
+
 # ===============================
 # Windows batch files
 # ===============================
