@@ -3,10 +3,11 @@ WORKDIR /app
 COPY gradlew .
 COPY gradle gradle
 COPY build.gradle.kts settings.gradle.kts ./
+RUN chmod +x gradlew
 COPY src src
 RUN ./gradlew clean bootJar -x test
 
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /app/build/libs/*.jar app.jar
 ENV JAVA_OPTS=""
