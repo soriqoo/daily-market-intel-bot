@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16
+    container_name: dmib-db
+    restart: always
+    environment:
+      POSTGRES_DB: dmib
+      POSTGRES_USER: dmib
+      POSTGRES_PASSWORD: dmib
+    volumes:
+      - dmib_pg:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  dmib:
+    build: .
+    container_name: dmib
+    restart: always
+    depends_on:
+      - db
+    environment:
+      - DB_URL=jdbc:postgresql://db:5432/dmib
+      - DB_USERNAME=dmib
+      - DB_PASSWORD=dmib
+
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL}
+
+      - MAIL_ENABLED=${MAIL_ENABLED}
+      - MAIL_TO=${MAIL_TO}
+      - GMAIL_USERNAME=${GMAIL_USERNAME}
+      - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
+
+volumes:
+  dmib_pg:
