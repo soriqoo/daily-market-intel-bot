@@ -32,18 +32,18 @@ class MarketReportService(
     )
 
     fun buildReport(runDate: LocalDate): Mono<ReportResult> {
-        val spx = stooq.fetchLatestAndPrevClose("^spx")
+        val spx = stooq.fetchLatestAndPrevClose("spy")
             .map { (latest, prev) ->
-                Metric("S&P 500 (^SPX)", MetricType.INDEX, runDate, latest, prev)
+                Metric("SPY (S&P 500 ETF)", MetricType.INDEX, runDate, latest, prev)
             }
             .map { MetricResult(it, null) }
             .onErrorResume { e ->
                 Mono.just(MetricResult(null, "S&P500 fetch failed: ${e.message ?: e.javaClass.simpleName}"))
             }
 
-        val ndx = stooq.fetchLatestAndPrevClose("^ndx")
+        val ndx = stooq.fetchLatestAndPrevClose("qqq")
             .map { (latest, prev) ->
-                Metric("Nasdaq-100 (^NDX)", MetricType.INDEX, runDate, latest, prev)
+                Metric("QQQ (Nasdaq-100 ETF)", MetricType.INDEX, runDate, latest, prev)
             }
             .map { MetricResult(it, null) }
             .onErrorResume { e ->
