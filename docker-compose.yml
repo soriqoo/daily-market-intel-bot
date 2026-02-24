@@ -10,7 +10,7 @@ services:
     volumes:
       - dmib_pg:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "127.0.0.1:15432:5432"
 
   dmib:
     build: .
@@ -23,7 +23,10 @@ services:
       - DB_USERNAME=dmib
       - DB_PASSWORD=dmib
 
+      - SLACK_ENABLED=${SLACK_ENABLED}
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+
+      - OPENAI_ENABLED=${OPENAI_ENABLED}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=${OPENAI_MODEL}
 

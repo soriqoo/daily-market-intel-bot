@@ -41,6 +41,7 @@ out/
 
 ### Docker Env ###
 .env
+docker-compose.override.yml
 
 # Logs
 *.log
