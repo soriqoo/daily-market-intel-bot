@@ -2,7 +2,6 @@ package com.dbot.dmib.job
 
 import com.dbot.dmib.datasource.FredClient
 import com.dbot.dmib.datasource.FxClient
-import com.dbot.dmib.datasource.StooqClient
 import com.dbot.dmib.domain.Metric
 import com.dbot.dmib.domain.MetricType
 import org.slf4j.LoggerFactory
@@ -32,24 +31,40 @@ class MarketReportService(
 
     fun buildReport(runDate: LocalDate): Mono<ReportResult> {
         val sp500 = fred.fetchLatestAndPrev("SP500")
-            .map { (latest, prev) -> Metric("S&P 500 (FRED:SP500)", MetricType.INDEX, runDate, latest, prev) }
+            .map { (latest, prev) ->
+                Metric("S&P 500 (FRED:SP500)", MetricType.INDEX, runDate, latest, prev)
+            }
             .map { MetricResult(it, null) }
-            .onErrorResume { e -> Mono.just(MetricResult(null, "S&P500 fetch failed: ${e.message ?: e.javaClass.simpleName}")) }
+            .onErrorResume { e ->
+                Mono.just(MetricResult(null, "S&P500 fetch failed: ${e.message ?: e.javaClass.simpleName}"))
+            }
 
         val nasdaq = fred.fetchLatestAndPrev("NASDAQCOM")
-            .map { (latest, prev) -> Metric("Nasdaq Composite (FRED:NASDAQCOM)", MetricType.INDEX, runDate, latest, prev) }
+            .map { (latest, prev) ->
+                Metric("Nasdaq Composite (FRED:NASDAQCOM)", MetricType.INDEX, runDate, latest, prev)
+            }
             .map { MetricResult(it, null) }
-            .onErrorResume { e -> Mono.just(MetricResult(null, "Nasdaq fetch failed: ${e.message ?: e.javaClass.simpleName}")) }
+            .onErrorResume { e ->
+                Mono.just(MetricResult(null, "Nasdaq fetch failed: ${e.message ?: e.javaClass.simpleName}"))
+            }
 
         val usdkrw = fx.fetchUsdKrw()
-            .map { latest -> Metric("USDKRW", MetricType.FX, runDate, latest, null) }
+            .map { latest ->
+                Metric("USDKRW", MetricType.FX, runDate, latest, null)
+            }
             .map { MetricResult(it, null) }
-            .onErrorResume { e -> Mono.just(MetricResult(null, "USDKRW fetch failed: ${e.message ?: e.javaClass.simpleName}")) }
+            .onErrorResume { e ->
+                Mono.just(MetricResult(null, "USDKRW fetch failed: ${e.message ?: e.javaClass.simpleName}"))
+            }
 
         val y10 = fred.fetchLatestAndPrev("DGS10")
-            .map { (latest, prev) -> Metric("US 10Y (FRED:DGS10)", MetricType.YIELD, runDate, latest, prev) }
+            .map { (latest, prev) ->
+                Metric("US 10Y (FRED:DGS10)", MetricType.YIELD, runDate, latest, prev)
+            }
             .map { MetricResult(it, null) }
-            .onErrorResume { e -> Mono.just(MetricResult(null, "US10Y fetch failed: ${e.message ?: e.javaClass.simpleName}")) }
+            .onErrorResume { e ->
+                Mono.just(MetricResult(null, "US10Y fetch failed: ${e.message ?: e.javaClass.simpleName}"))
+            }
 
         return Mono.zip(sp500, nasdaq, usdkrw, y10)
             .map { tuple ->
@@ -74,7 +89,6 @@ class MarketReportService(
             "• ${m.name}: ${fmt(m.value)} (Δ $ch / $chPct)"
         }.ifBlank { "• (no metrics available)" }
 
-        // 룰 기반 “한 줄 코멘트”(LLM 없이도 유용하게)
         val quick = buildList {
             metrics.firstOrNull { it.name.contains("US 10Y") }?.change?.let { c ->
                 if (c > BigDecimal("0")) add("금리 상승: 성장주/리스크 자산 변동성 주의")
