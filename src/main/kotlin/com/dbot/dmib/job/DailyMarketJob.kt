@@ -1,149 +1,70 @@
 package com.dbot.dmib.job
 
-import com.dbot.dmib.config.AppProperties
-import com.dbot.dmib.datasource.FredClient
-import com.dbot.dmib.datasource.FxClient
-import com.dbot.dmib.datasource.StooqClient
-import com.dbot.dmib.domain.MarketSnapshot
-import com.dbot.dmib.domain.Metric
-import com.dbot.dmib.domain.MetricType
-import com.dbot.dmib.llm.DigestPrompt
-import com.dbot.dmib.llm.DailyDigest
-import com.dbot.dmib.llm.OpenAiClient
-import com.dbot.dmib.notify.GmailNotifier
 import com.dbot.dmib.notify.SlackNotifier
 import com.dbot.dmib.store.RunStore
+import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
-import java.math.BigDecimal
 import java.security.MessageDigest
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
+import java.time.OffsetDateTime
 
 @Component
 class DailyMarketJob(
-    private val props: AppProperties,
-    private val stooq: StooqClient,
-    private val fx: FxClient,
-    private val fred: FredClient,
+    private val reportService: MarketReportService,
     private val runStore: RunStore,
-    // 조건부 빈: enabled=false면 Bean이 없으므로 nullable
-    private val openai: OpenAiClient?,
-    private val slack: SlackNotifier?,
-    private val gmail: GmailNotifier?
+    private val slack: SlackNotifier?
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
 
-    /**
-     * 매일 08:00 (Asia/Seoul). 실제 크론/zone은 application.yml에서 관리.
-     */
     @Scheduled(cron = "\${app.schedule.cron}", zone = "\${app.timezone}")
     fun run() {
         val runDate = LocalDate.now()
+        val startedAt = OffsetDateTime.now()
 
-        // 테스트/로컬에서 키가 없을 때 컨텍스트 로딩은 성공해야 하므로, 실행만 스킵
-        if (openai == null || slack == null) {
+        // Slack 비활성/미주입이면 실행 자체를 스킵(운영 안전)
+        if (slack == null) {
+            log.info("Slack notifier not available. Skip run. date={}", runDate)
             return
         }
 
-        // 동일 날짜 중복 전송 방지
-        if (runStore.alreadySent(runDate)) {
-            return
-        }
+        reportService.buildReport(runDate)
+            .flatMap { rr ->
+                val hash = sha256(rr.slackText)
 
-        // 지표 수집 (MVP)
-        val metricsMono: Mono<List<Metric>> = Mono.zip(
-            stooq.fetchLatestAndPrevClose("^spx"),
-            stooq.fetchLatestAndPrevClose("^ndx"),
-            fx.fetchUsdKrw(),
-            fred.fetch10yLatestAndPrev()
-        ).map { tuple ->
-            val (spxLatest, spxPrev) = tuple.t1
-            val (ndxLatest, ndxPrev) = tuple.t2
-            val usdkrw = tuple.t3
-            val (y10, y10Prev) = tuple.t4
+                // Idempotency: 같은 날짜에 같은 payload면 전송 스킵
+                val prevHash = runStore.findSentHash(runDate)
+                if (prevHash != null && prevHash == hash) {
+                    log.info("Skip sending (same payload already sent). date={}, hash={}", runDate, hash)
+                    return@flatMap Mono.empty<Void>()
+                }
 
-            listOf(
-                Metric("S&P 500 (^SPX)", MetricType.INDEX, runDate, spxLatest, spxPrev),
-                Metric("Nasdaq-100 (^NDX)", MetricType.INDEX, runDate, ndxLatest, ndxPrev),
-                Metric("USDKRW", MetricType.FX, runDate, usdkrw, null),
-                Metric("US 10Y (DGS10)", MetricType.YIELD, runDate, y10, y10Prev)
-            )
-        }
+                // metrics가 0개면 실패 처리 + Slack 실패 메시지 전송(운영 관측)
+                if (rr.metrics.isEmpty()) {
+                    val errText = ":warning: DMIB FAILED ($runDate) - no metrics available.\n" +
+                            rr.errors.joinToString("\n") { "• $it" }.ifBlank { "• unknown error" }
 
-        metricsMono
-            .flatMap { metrics ->
-                val snapshot = MarketSnapshot(runDate, metrics)
-                val system = DigestPrompt.system()
-                val user = DigestPrompt.user(snapshot)
+                    runStore.markFailed(runDate, payloadHash = hash, error = errText)
+                    return@flatMap slack.send(errText)
+                }
 
-                openai.summarize(system, user)
-                    .map { digest ->
-                        val message = buildSlackMessage(snapshot, digest)
-                        val hash = sha256(message)
-                        Triple(snapshot, digest, Pair(message, hash))
-                    }
-            }
-            .flatMap { (snapshot, digest, msgAndHash) ->
-                val (message, hash) = msgAndHash
-
-                // Slack 전송은 필수
-                slack.send(message)
+                // 정상 전송
+                slack.send(rr.slackText)
                     .doOnSuccess {
-                        // Email은 옵션
-                        if (props.mail.enabled && gmail != null && props.mail.to.isNotBlank()) {
-                            gmail.send(
-                                to = props.mail.to,
-                                subject = "[DMIB] ${digest.title}",
-                                body = message
-                            )
-                        }
                         runStore.markSent(runDate, hash)
+                        val elapsedMs = java.time.Duration.between(startedAt, OffsetDateTime.now()).toMillis()
+                        log.info("DMIB SENT. date={}, hash={}, elapsedMs={}", runDate, hash, elapsedMs)
                     }
             }
             .doOnError { e ->
                 val err = (e.message ?: e.toString()).take(2000)
                 runStore.markFailed(runDate, payloadHash = "N/A", error = err)
-
-                // 실패 알림도 Slack으로(가능하면)
-                slack.send(":warning: DMIB FAILED (${runDate.format(DateTimeFormatter.ISO_DATE)})\n$err")
-                    .subscribe()
+                log.error("DMIB ERROR. date={}, err={}", runDate, err)
+                // Slack이 있으니 실패도 알림(에이전트 운영성)
+                slack.send(":warning: DMIB ERROR ($runDate)\n$err").subscribe()
             }
             .subscribe()
-    }
-
-    private fun buildSlackMessage(snapshot: MarketSnapshot, digest: DailyDigest): String {
-        fun fmt(v: BigDecimal): String = v.stripTrailingZeros().toPlainString()
-
-        val metricsLines = snapshot.metrics.joinToString("\n") { m ->
-            val ch = m.change?.let { fmt(it) } ?: "-"
-            val chPct = m.changePct?.let { "${it.setScale(2, java.math.RoundingMode.HALF_UP)}%" } ?: "-"
-            "• ${m.name}: ${fmt(m.value)} (Δ $ch / $chPct)"
-        }
-
-        val bullets = digest.summaryBullets.joinToString("\n") { "• $it" }
-        val risks = digest.risks.joinToString("\n") { "• $it" }
-        val actions = digest.actionItems.joinToString("\n") { "• $it" }
-        val keys = digest.keyNumbers.joinToString("\n") { "• $it" }
-
-        return """
-            *${digest.title}*  (${snapshot.runDate})
-            
-            *Metrics*
-            $metricsLines
-            
-            *Summary*
-            $bullets
-            
-            *Key Numbers*
-            $keys
-            
-            *Risks*
-            $risks
-            
-            *Action Items*
-            $actions
-        """.trimIndent()
     }
 
     private fun sha256(s: String): String {

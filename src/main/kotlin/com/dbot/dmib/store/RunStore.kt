@@ -38,4 +38,12 @@ class RunStore(private val jdbcTemplate: JdbcTemplate) {
             runDate.toString(), payloadHash, error.take(2000)
         )
     }
+
+    fun findSentHash(runDate: LocalDate): String? {
+        return jdbcTemplate.query(
+            "SELECT payload_hash FROM job_run WHERE run_date = ? AND status = 'SENT' LIMIT 1",
+            arrayOf(runDate.toString())
+        ) { rs, _ -> rs.getString("payload_hash") }
+            .firstOrNull()
+    }
 }
