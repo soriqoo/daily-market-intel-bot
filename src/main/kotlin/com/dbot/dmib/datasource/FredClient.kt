@@ -7,37 +7,34 @@ import java.math.BigDecimal
 
 class FredClient(private val webClient: WebClient) {
 
-    fun fetch10yLatestAndPrev(): Mono<Pair<BigDecimal, BigDecimal?>> {
+    fun fetchLatestAndPrev(seriesId: String): Mono<Pair<BigDecimal, BigDecimal?>> {
+        val url = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=$seriesId"
         return webClient.get()
-            .uri("https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10")
+            .uri(url)
             .header(HttpHeaders.ACCEPT, "text/csv,*/*")
             .header(HttpHeaders.USER_AGENT, "dmib-bot/1.0")
-            .retrieve()
-            .bodyToMono(String::class.java)
-            .map { body ->
-                val csv = body.trim()
+            .exchangeToMono { resp ->
+                resp.bodyToMono(String::class.java).map { body ->
+                    val status = resp.statusCode().value()
+                    if (status !in 200..299) error("FRED status=$status for $seriesId")
 
-                if (!csv.startsWith("DATE,") && !csv.startsWith("Date,")) {
-                    val snippet = csv.take(200).replace("\n", "\\n")
-                    error("FRED non-CSV response for DGS10, snippet=$snippet")
-                }
-
-                val rows = csv.lines().drop(1)
-                    .mapNotNull { line ->
-                        val parts = line.split(",")
-                        if (parts.size < 2) null else parts[0] to parts[1]
+                    val csv = body.trim()
+                    // FRED는 DATE, 또는 observation_date 로 시작하는 경우가 있음
+                    if (!csv.startsWith("DATE,") && !csv.startsWith("observation_date,") && !csv.startsWith("Date,")) {
+                        error("FRED non-CSV for $seriesId, snippet=${csv.take(200).replace("\n","\\n")}")
                     }
-                    .filter { (_, v) -> v != "." && v.isNotBlank() }
 
-                if (rows.size < 2) {
-                    val snippet = csv.take(200).replace("\n", "\\n")
-                    error("FRED CSV too short for DGS10, snippet=$snippet")
+                    val rows = csv.lines().drop(1)
+                        .mapNotNull {
+                            val p = it.split(",")
+                            if (p.size < 2) null else p[0] to p[1]
+                        }
+                        .filter { (_, v) -> v != "." && v.isNotBlank() }
+
+                    if (rows.size < 2) error("FRED CSV too short for $seriesId, snippet=${csv.take(200)}")
+
+                    rows.last().second.toBigDecimal() to rows[rows.size - 2].second.toBigDecimal()
                 }
-
-                val last = rows.last()
-                val prev = rows.dropLast(1).last()
-
-                last.second.toBigDecimal() to prev.second.toBigDecimal()
             }
     }
 }

@@ -13,7 +13,6 @@ import java.time.LocalDate
 
 @Service
 class MarketReportService(
-    private val stooq: StooqClient,
     private val fx: FxClient,
     private val fred: FredClient
 ) {
@@ -32,43 +31,27 @@ class MarketReportService(
     )
 
     fun buildReport(runDate: LocalDate): Mono<ReportResult> {
-        val spx = stooq.fetchLatestAndPrevClose("spy")
-            .map { (latest, prev) ->
-                Metric("SPY (S&P 500 ETF)", MetricType.INDEX, runDate, latest, prev)
-            }
+        val sp500 = fred.fetchLatestAndPrev("SP500")
+            .map { (latest, prev) -> Metric("S&P 500 (FRED:SP500)", MetricType.INDEX, runDate, latest, prev) }
             .map { MetricResult(it, null) }
-            .onErrorResume { e ->
-                Mono.just(MetricResult(null, "S&P500 fetch failed: ${e.message ?: e.javaClass.simpleName}"))
-            }
+            .onErrorResume { e -> Mono.just(MetricResult(null, "S&P500 fetch failed: ${e.message ?: e.javaClass.simpleName}")) }
 
-        val ndx = stooq.fetchLatestAndPrevClose("qqq")
-            .map { (latest, prev) ->
-                Metric("QQQ (Nasdaq-100 ETF)", MetricType.INDEX, runDate, latest, prev)
-            }
+        val nasdaq = fred.fetchLatestAndPrev("NASDAQCOM")
+            .map { (latest, prev) -> Metric("Nasdaq Composite (FRED:NASDAQCOM)", MetricType.INDEX, runDate, latest, prev) }
             .map { MetricResult(it, null) }
-            .onErrorResume { e ->
-                Mono.just(MetricResult(null, "Nasdaq-100 fetch failed: ${e.message ?: e.javaClass.simpleName}"))
-            }
+            .onErrorResume { e -> Mono.just(MetricResult(null, "Nasdaq fetch failed: ${e.message ?: e.javaClass.simpleName}")) }
 
         val usdkrw = fx.fetchUsdKrw()
-            .map { latest ->
-                Metric("USDKRW", MetricType.FX, runDate, latest, null)
-            }
+            .map { latest -> Metric("USDKRW", MetricType.FX, runDate, latest, null) }
             .map { MetricResult(it, null) }
-            .onErrorResume { e ->
-                Mono.just(MetricResult(null, "USDKRW fetch failed: ${e.message ?: e.javaClass.simpleName}"))
-            }
+            .onErrorResume { e -> Mono.just(MetricResult(null, "USDKRW fetch failed: ${e.message ?: e.javaClass.simpleName}")) }
 
-        val y10 = fred.fetch10yLatestAndPrev()
-            .map { (latest, prev) ->
-                Metric("US 10Y (DGS10)", MetricType.YIELD, runDate, latest, prev)
-            }
+        val y10 = fred.fetchLatestAndPrev("DGS10")
+            .map { (latest, prev) -> Metric("US 10Y (FRED:DGS10)", MetricType.YIELD, runDate, latest, prev) }
             .map { MetricResult(it, null) }
-            .onErrorResume { e ->
-                Mono.just(MetricResult(null, "US10Y fetch failed: ${e.message ?: e.javaClass.simpleName}"))
-            }
+            .onErrorResume { e -> Mono.just(MetricResult(null, "US10Y fetch failed: ${e.message ?: e.javaClass.simpleName}")) }
 
-        return Mono.zip(spx, ndx, usdkrw, y10)
+        return Mono.zip(sp500, nasdaq, usdkrw, y10)
             .map { tuple ->
                 val results = listOf(tuple.t1, tuple.t2, tuple.t3, tuple.t4)
                 val metrics = results.mapNotNull { it.metric }
