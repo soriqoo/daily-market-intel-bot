@@ -1,31 +1,43 @@
 package com.dbot.dmib.datasource
 
+import org.springframework.http.HttpHeaders
 import org.springframework.web.reactive.function.client.WebClient
 import reactor.core.publisher.Mono
 import java.math.BigDecimal
-import java.time.LocalDate
 
 class FredClient(private val webClient: WebClient) {
 
     fun fetch10yLatestAndPrev(): Mono<Pair<BigDecimal, BigDecimal?>> {
-        // 그래프 CSV 다운로드 형태(가볍게 파싱)
-        val url = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10"
-        return webClient.get().uri(url).retrieve().bodyToMono(String::class.java)
-            .map { csv ->
-                // header: DATE,DGS10
-                val rows = csv.trim().lines().drop(1)
+        return webClient.get()
+            .uri("https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10")
+            .header(HttpHeaders.ACCEPT, "text/csv,*/*")
+            .header(HttpHeaders.USER_AGENT, "dmib-bot/1.0")
+            .retrieve()
+            .bodyToMono(String::class.java)
+            .map { body ->
+                val csv = body.trim()
+
+                if (!csv.startsWith("DATE,") && !csv.startsWith("Date,")) {
+                    val snippet = csv.take(200).replace("\n", "\\n")
+                    error("FRED non-CSV response for DGS10, snippet=$snippet")
+                }
+
+                val rows = csv.lines().drop(1)
                     .mapNotNull { line ->
                         val parts = line.split(",")
                         if (parts.size < 2) null else parts[0] to parts[1]
                     }
-                    .filter { (_, v) -> v != "." } // 결측치
+                    .filter { (_, v) -> v != "." && v.isNotBlank() }
+
+                if (rows.size < 2) {
+                    val snippet = csv.take(200).replace("\n", "\\n")
+                    error("FRED CSV too short for DGS10, snippet=$snippet")
+                }
+
                 val last = rows.last()
-                val prev = rows.dropLast(1).lastOrNull()
-                val lastVal = last.second.toBigDecimal()
-                val prevVal = prev?.second?.toBigDecimal()
-                lastVal to prevVal
+                val prev = rows.dropLast(1).last()
+
+                last.second.toBigDecimal() to prev.second.toBigDecimal()
             }
     }
-
-    fun today(): LocalDate = LocalDate.now()
 }
