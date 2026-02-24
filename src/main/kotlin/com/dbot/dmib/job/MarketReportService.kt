@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.LocalDate
 
 @Service
@@ -32,7 +33,7 @@ class MarketReportService(
     fun buildReport(runDate: LocalDate): Mono<ReportResult> {
         val sp500 = fred.fetchLatestAndPrev("SP500")
             .map { (latest, prev) ->
-                Metric("S&P 500 (FRED:SP500)", MetricType.INDEX, runDate, latest, prev)
+                Metric("S&P 500", MetricType.INDEX, runDate, latest, prev)
             }
             .map { MetricResult(it, null) }
             .onErrorResume { e ->
@@ -41,7 +42,7 @@ class MarketReportService(
 
         val nasdaq = fred.fetchLatestAndPrev("NASDAQCOM")
             .map { (latest, prev) ->
-                Metric("Nasdaq Composite (FRED:NASDAQCOM)", MetricType.INDEX, runDate, latest, prev)
+                Metric("Nasdaq", MetricType.INDEX, runDate, latest, prev)
             }
             .map { MetricResult(it, null) }
             .onErrorResume { e ->
@@ -59,7 +60,7 @@ class MarketReportService(
 
         val y10 = fred.fetchLatestAndPrev("DGS10")
             .map { (latest, prev) ->
-                Metric("US 10Y (FRED:DGS10)", MetricType.YIELD, runDate, latest, prev)
+                Metric("US 10Y", MetricType.YIELD, runDate, latest, prev)
             }
             .map { MetricResult(it, null) }
             .onErrorResume { e ->
@@ -80,24 +81,63 @@ class MarketReportService(
             }
     }
 
+    /**
+     * Slack 메시지를 "한국 개인투자자 관점"으로 읽기 쉽게 만든다.
+     * - 단위 명시
+     * - 변동률은 %로 강조
+     * - 룰 기반 해석/액션 제시 (LLM 없이)
+     */
     private fun formatSlack(runDate: LocalDate, metrics: List<Metric>, errors: List<String>): String {
-        fun fmt(v: BigDecimal): String = v.stripTrailingZeros().toPlainString()
+        val sp = metrics.find { it.name == "S&P 500" }
+        val nq = metrics.find { it.name == "Nasdaq" }
+        val fx = metrics.find { it.name == "USDKRW" }
+        val y10 = metrics.find { it.name == "US 10Y" }
 
-        val lines = metrics.joinToString("\n") { m ->
-            val ch = m.change?.let { fmt(it) } ?: "-"
-            val chPct = m.changePct?.let { "${it.setScale(2, java.math.RoundingMode.HALF_UP)}%" } ?: "-"
-            "• ${m.name}: ${fmt(m.value)} (Δ $ch / $chPct)"
-        }.ifBlank { "• (no metrics available)" }
+        fun pct(m: Metric?): String =
+            m?.changePct?.setScale(2, RoundingMode.HALF_UP)?.toPlainString()?.let { "$it%" } ?: "-"
 
-        val quick = buildList {
-            metrics.firstOrNull { it.name.contains("US 10Y") }?.change?.let { c ->
-                if (c > BigDecimal("0")) add("금리 상승: 성장주/리스크 자산 변동성 주의")
-            }
-            metrics.firstOrNull { it.name == "USDKRW" }?.value?.let { v ->
-                if (v > BigDecimal("1400")) add("환율 높음: 해외투자 환차 영향 체크")
-            }
-        }.distinct().take(2).joinToString(" / ").ifBlank { "변동 요인 체크" }
+        fun delta(m: Metric?): String =
+            m?.change?.setScale(2, RoundingMode.HALF_UP)?.toPlainString() ?: "-"
 
+        fun num0(v: BigDecimal?): String = v?.setScale(0, RoundingMode.HALF_UP)?.toPlainString() ?: "-"
+        fun num2(v: BigDecimal?): String = v?.setScale(2, RoundingMode.HALF_UP)?.toPlainString() ?: "-"
+
+        // ========== 1) 헤드라인(요약) ==========
+        val headline = buildList {
+            sp?.changePct?.let { add("S&P ${arrow(it)} ${pct(sp)}") }
+            nq?.changePct?.let { add("Nasdaq ${arrow(it)} ${pct(nq)}") }
+            fx?.value?.let { add("환율 ${num0(it)}원") }
+            y10?.value?.let { add("10Y ${num2(it)}%") }
+        }.takeIf { it.isNotEmpty() }?.joinToString(" | ") ?: "데이터 수집 중"
+
+        // ========== 2) Metrics(단위 포함) ==========
+        val metricLines = buildList {
+            sp?.let {
+                add("• 🔻/🔺 S&P 500: ${num2(it.value)} pt (Δ ${delta(it)} / ${pct(it)})")
+            } ?: add("• S&P 500: (N/A)")
+
+            nq?.let {
+                add("• 🔻/🔺 Nasdaq: ${num2(it.value)} pt (Δ ${delta(it)} / ${pct(it)})")
+            } ?: add("• Nasdaq: (N/A)")
+
+            fx?.let {
+                add("• 💵 USDKRW: ${num0(it.value)} 원/달러")
+            } ?: add("• USDKRW: (N/A)")
+
+            y10?.let {
+                add("• 🏦 US 10Y: ${num2(it.value)} %")
+            } ?: add("• US 10Y: (N/A)")
+        }.joinToString("\n")
+
+        // ========== 3) 룰 기반 해석(Policy) ==========
+        val interpretations = buildInterpretations(sp, nq, fx, y10)
+        val interpretationLines = if (interpretations.isEmpty()) "• 특별 신호 없음" else interpretations.joinToString("\n") { "• $it" }
+
+        // ========== 4) 액션(체크리스트) ==========
+        val actions = buildActions(sp, nq, fx, y10)
+        val actionLines = if (actions.isEmpty()) "• 체크할 항목 없음" else actions.joinToString("\n") { "• $it" }
+
+        // ========== 5) 오류 ==========
         val errLines = if (errors.isNotEmpty()) {
             errors.joinToString("\n") { "• $it" }
         } else {
@@ -105,16 +145,94 @@ class MarketReportService(
         }
 
         return """
-            *DMIB Market Snapshot*  ($runDate)
+            *📊 DMIB Morning Brief*  ($runDate)
+            *Headline*  $headline
             
-            *Metrics*
-            $lines
+            *Metrics (단위 포함)*
+            $metricLines
             
-            *Quick Note*
-            • $quick
+            *Interpretation (룰 기반)*
+            $interpretationLines
+            
+            *Action Items (체크리스트)*
+            $actionLines
             
             *Fetch Errors*
             $errLines
         """.trimIndent()
     }
+
+    private fun arrow(pct: BigDecimal): String =
+        when {
+            pct > BigDecimal.ZERO -> "▲"
+            pct < BigDecimal.ZERO -> "▼"
+            else -> "—"
+        }
+
+    /**
+     * 룰 기반 해석:
+     * - 변동폭(지수) / 금리 구간 / 환율 구간
+     */
+    private fun buildInterpretations(
+        sp: Metric?,
+        nq: Metric?,
+        fx: Metric?,
+        y10: Metric?
+    ): List<String> {
+        val out = mutableListOf<String>()
+
+        // 변동폭 기반(지수)
+        sp?.changePct?.let { p ->
+            if (p <= BigDecimal("-1.00")) out.add("미국 시장 조정(하락) 강도 ↑: 단기 변동성 확대 가능")
+            if (p >= BigDecimal("1.00")) out.add("미국 시장 강세(상승) 신호: 리스크 온 분위기")
+        }
+        nq?.changePct?.let { p ->
+            if (p <= BigDecimal("-1.00")) out.add("기술주 중심 약세: 성장주/고밸류 변동성 주의")
+            if (p >= BigDecimal("1.00")) out.add("기술주 강세: 성장주 심리 개선 가능")
+        }
+
+        // 금리 구간(대략적인 직관 룰)
+        y10?.value?.let { v ->
+            if (v >= BigDecimal("4.00")) out.add("10Y 금리 4%대: 성장주에 부담, 채권 매력 상대적 ↑")
+            if (v <= BigDecimal("3.50")) out.add("10Y 금리 낮은 구간: 성장주에 우호적일 수 있음")
+        }
+
+        // 환율 구간(한국 개인투자자 관점)
+        fx?.value?.let { v ->
+            if (v >= BigDecimal("1400")) out.add("환율 1400원 이상: 달러 강세/원화 약세 구간(환차 영향 큼)")
+            if (v <= BigDecimal("1300")) out.add("환율 1300원대 이하: 환차 부담 완화 구간")
+        }
+
+        return out.distinct().take(4)
+    }
+
+    private fun buildActions(
+        sp: Metric?,
+        nq: Metric?,
+        fx: Metric?,
+        y10: Metric?
+    ): List<String> {
+        val out = mutableListOf<String>()
+
+        // 변동폭이 크면 "리밸런싱/포지션 점검" 유도
+        val bigMove = listOfNotNull(sp?.changePct?.abs(), nq?.changePct?.abs()).any { it >= BigDecimal("1.00") }
+        if (bigMove) out.add("보유 종목/ETF 변동폭 큰 날: 포지션/리스크(손절·추매 기준) 점검")
+
+        // 환율 높으면 환전/분할매수 체크
+        fx?.value?.let { v ->
+            if (v >= BigDecimal("1400")) out.add("환전/추가매수는 분할 접근 고려(환율 고점 리스크)")
+        }
+
+        // 금리 높으면 성장주 비중/듀레이션 점검
+        y10?.value?.let { v ->
+            if (v >= BigDecimal("4.00")) out.add("금리 부담 구간: 고밸류 성장주 비중/현금비중 점검")
+        }
+
+        // 기본 행동(데이터 기반 루틴)
+        out.add("오늘 일정(경제지표/실적발표) 확인 후 과도한 매매 자제")
+
+        return out.distinct().take(4)
+    }
+
+    private fun BigDecimal.abs(): BigDecimal = this.abs()
 }
