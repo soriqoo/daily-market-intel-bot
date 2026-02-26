@@ -2,6 +2,10 @@ app:
   timezone: "Asia/Seoul"
   schedule:
     cron: "0 0 8 * * *"
+  ai:
+    enabled: "${GEMINI_ENABLED:false}"
+    geminiApiKey: "${GEMINI_API_KEY:}"
+    geminiModel: "${GEMINI_MODEL:gemini-2.5-flash}"
   openai:
     enabled: "${OPENAI_ENABLED:false}"
     apiKey: "${OPENAI_API_KEY:}"

@@ -1,10 +1,12 @@
 package com.dbot.dmib.job
 
+import com.dbot.dmib.ai.GeminiClient
 import com.dbot.dmib.datasource.FredClient
 import com.dbot.dmib.datasource.FxClient
 import com.dbot.dmib.domain.Metric
 import com.dbot.dmib.domain.MetricType
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 import java.math.BigDecimal
@@ -14,7 +16,11 @@ import java.time.LocalDate
 @Service
 class MarketReportService(
     private val fx: FxClient,
-    private val fred: FredClient
+    private val fred: FredClient,
+    private val gemini: GeminiClient,
+    @Value("\${app.ai.enabled:false}") private val aiEnabled: Boolean,
+    @Value("\${app.ai.geminiApiKey:}") private val geminiApiKey: String,
+    @Value("\${app.ai.geminiModel:gemini-1.5-flash}") private val geminiModel: String
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -68,16 +74,27 @@ class MarketReportService(
             }
 
         return Mono.zip(sp500, nasdaq, usdkrw, y10)
-            .map { tuple ->
+            .flatMap { tuple ->
                 val results = listOf(tuple.t1, tuple.t2, tuple.t3, tuple.t4)
                 val metrics = results.mapNotNull { it.metric }
                 val errors = results.mapNotNull { it.error }
 
-                val slackText = formatSlack(runDate, metrics, errors)
-                ReportResult(runDate, metrics, errors, slackText)
-            }
-            .doOnNext { rr ->
-                log.info("Market report built. date={}, metrics={}, errors={}", rr.runDate, rr.metrics.size, rr.errors.size)
+                val baseText = formatSlack(runDate, metrics, errors)
+
+                if (!aiEnabled || geminiApiKey.isBlank() || !shouldCallAi(metrics)) {
+                    return@flatMap Mono.just(ReportResult(runDate, metrics, errors, baseText))
+                }
+
+                val prompt = buildGeminiPrompt(runDate, metrics)
+
+                gemini.generateJson(geminiApiKey, geminiModel, prompt)
+                    .map { aiJson ->
+                        val aiSection = formatAiSection(aiJson)
+                        ReportResult(runDate, metrics, errors, baseText + "\n\n" + aiSection)
+                    }
+                    .onErrorResume { e ->
+                        Mono.just(ReportResult(runDate, metrics, errors, baseText + "\n\n*AI Analysis*\n• (AI 호출 실패) ${e.message ?: e.javaClass.simpleName}"))
+                    }
             }
     }
 
@@ -232,6 +249,64 @@ class MarketReportService(
         out.add("오늘 일정(경제지표/실적발표) 확인 후 과도한 매매 자제")
 
         return out.distinct().take(4)
+    }
+
+    // Gemini AI 분석 호출을 진행할지 여부
+    private fun shouldCallAi(metrics: List<Metric>): Boolean {
+        val sp = metrics.find { it.name == "S&P 500" }
+        val nq = metrics.find { it.name == "Nasdaq" }
+        val fx = metrics.find { it.name == "USDKRW" }
+        val y10 = metrics.find { it.name.contains("US 10Y") }
+
+        val bigMove = listOfNotNull(sp?.changePct?.abs(), nq?.changePct?.abs()).any { it >= BigDecimal("1.00") }
+        val highFx = fx?.value?.let { it >= BigDecimal("1400") } ?: false
+        val highY10 = y10?.value?.let { it >= BigDecimal("4.00") } ?: false
+
+        return bigMove || highFx || highY10
+    }
+
+    private fun buildGeminiPrompt(runDate: LocalDate, metrics: List<Metric>): String {
+        val lines = metrics.joinToString("\n") { m ->
+            val pct = m.changePct?.setScale(2, RoundingMode.HALF_UP)?.toPlainString()?.let { "$it%" } ?: "N/A"
+            val ch = m.change?.setScale(2, RoundingMode.HALF_UP)?.toPlainString() ?: "N/A"
+            "${m.name}: value=${m.value} change=$ch changePct=$pct"
+        }
+
+        return """
+        You are a market briefing assistant for a Korean retail investor.
+        Output MUST be a valid JSON object with EXACTLY these fields:
+        summary (array of 3 short strings),
+        risks (array of 3 short strings),
+        actionItems (array of 3 short strings).
+        Keep it concise. No investment guarantees.
+        
+        Date: $runDate
+        Metrics:
+        $lines
+    """.trimIndent()
+    }
+
+    private fun formatAiSection(aiJson: com.fasterxml.jackson.databind.JsonNode): String {
+        val raw = aiJson["rawText"]?.asText()
+        if (!raw.isNullOrBlank()) {
+            return "*AI Analysis*\n• $raw"
+        }
+
+        val summary = aiJson["summary"]?.mapNotNull { it.asText() }?.take(3).orEmpty()
+        val risks = aiJson["risks"]?.mapNotNull { it.asText() }?.take(3).orEmpty()
+        val actions = aiJson["actionItems"]?.mapNotNull { it.asText() }?.take(3).orEmpty()
+
+        return """
+        *AI Analysis (조건부)*
+        *Summary*
+        ${summary.joinToString("\n") { "• $it" }.ifBlank { "• (none)" }}
+        
+        *Risks*
+        ${risks.joinToString("\n") { "• $it" }.ifBlank { "• (none)" }}
+        
+        *Action Items*
+        ${actions.joinToString("\n") { "• $it" }.ifBlank { "• (none)" }}
+    """.trimIndent()
     }
 
     private fun BigDecimal.abs(): BigDecimal = this.abs()
