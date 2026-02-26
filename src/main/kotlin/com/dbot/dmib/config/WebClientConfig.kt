@@ -17,14 +17,14 @@ class WebClientConfig {
     @Bean
     fun webClient(): WebClient {
         val httpClient = HttpClient.create()
-            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 2000)
-            .responseTimeout(Duration.ofSeconds(10))
+            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 3000)
+            .responseTimeout(Duration.ofSeconds(15))
             .doOnConnected { conn ->
-                conn.addHandlerLast(ReadTimeoutHandler(10))
-                conn.addHandlerLast(WriteTimeoutHandler(10))
+                conn.addHandlerLast(ReadTimeoutHandler(15))
+                conn.addHandlerLast(WriteTimeoutHandler(15))
             }
 
-        // ✅ FRED CSV 같은 큰 응답을 위해 버퍼 상향 (기본 256KB -> 2MB)
+        // FRED CSV 등 비교적 큰 응답(기본 256KB 제한 해제)
         val strategies = ExchangeStrategies.builder()
             .codecs { config ->
                 config.defaultCodecs().maxInMemorySize(2 * 1024 * 1024) // 2MB
