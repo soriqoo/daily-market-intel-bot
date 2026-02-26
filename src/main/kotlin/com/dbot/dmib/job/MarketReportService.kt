@@ -5,6 +5,7 @@ import com.dbot.dmib.datasource.FredClient
 import com.dbot.dmib.datasource.FxClient
 import com.dbot.dmib.domain.Metric
 import com.dbot.dmib.domain.MetricType
+import com.fasterxml.jackson.databind.JsonNode
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
@@ -258,9 +259,10 @@ class MarketReportService(
         val fx = metrics.find { it.name == "USDKRW" }
         val y10 = metrics.find { it.name.contains("US 10Y") }
 
-        val bigMove = listOfNotNull(sp?.changePct?.abs(), nq?.changePct?.abs()).any { it >= BigDecimal("1.00") }
-        val highFx = fx?.value?.let { it >= BigDecimal("1400") } ?: false
-        val highY10 = y10?.value?.let { it >= BigDecimal("4.00") } ?: false
+        val bigMove = listOfNotNull(sp?.changePct?.abs(), nq?.changePct?.abs())
+            .any { it >= BigDecimal("1.20") }
+        val highFx = fx?.value?.let { it >= BigDecimal("1450") } ?: false
+        val highY10 = y10?.value?.let { it >= BigDecimal("4.30") } ?: false
 
         return bigMove || highFx || highY10
     }
@@ -273,39 +275,54 @@ class MarketReportService(
         }
 
         return """
-        You are a market briefing assistant for a Korean retail investor.
-        Output MUST be a valid JSON object with EXACTLY these fields:
-        summary (array of 3 short strings),
-        risks (array of 3 short strings),
-        actionItems (array of 3 short strings).
-        Keep it concise. No investment guarantees.
+        너는 한국 개인투자자를 위한 시장 브리핑 어시스턴트다.
+        반드시 한국어로만 답하라.
         
+        아래 형식의 JSON만 출력하라. 다른 텍스트는 절대 출력하지 말 것.
+        
+        {
+          "signal": "긍정 | 중립 | 부정 중 하나",
+          "summary": ["3줄 이내의 핵심 요약"],
+          "risks": ["3줄 이내의 리스크 요약"],
+          "actionItems": ["3줄 이내의 실천 가능한 행동 제안"]
+        }
+
+        시장 데이터:
         Date: $runDate
-        Metrics:
         $lines
+
+        규칙:
+        - 숫자 해석을 쉽게 설명할 것
+        - 과장 금지
+        - 투자 확정적 표현 금지
+        - 초보자도 이해 가능하게 작성
     """.trimIndent()
     }
 
-    private fun formatAiSection(aiJson: com.fasterxml.jackson.databind.JsonNode): String {
+    private fun formatAiSection(aiJson: JsonNode): String {
         val raw = aiJson["rawText"]?.asText()
         if (!raw.isNullOrBlank()) {
             return "*AI Analysis*\n• $raw"
         }
 
+        val signal = aiJson["signal"]?.asText() ?: "중립"
         val summary = aiJson["summary"]?.mapNotNull { it.asText() }?.take(3).orEmpty()
         val risks = aiJson["risks"]?.mapNotNull { it.asText() }?.take(3).orEmpty()
         val actions = aiJson["actionItems"]?.mapNotNull { it.asText() }?.take(3).orEmpty()
 
         return """
-        *AI Analysis (조건부)*
-        *Summary*
-        ${summary.joinToString("\n") { "• $it" }.ifBlank { "• (none)" }}
+        *AI Analysis*
         
-        *Risks*
-        ${risks.joinToString("\n") { "• $it" }.ifBlank { "• (none)" }}
+        🧭 오늘 시장 신호: *$signal*
         
-        *Action Items*
-        ${actions.joinToString("\n") { "• $it" }.ifBlank { "• (none)" }}
+        📌 한 줄 요약
+        ${summary.joinToString("\n") { "• $it" }}
+        
+        ⚠️ 리스크 포인트
+        ${risks.joinToString("\n") { "• $it" }}
+        
+        🎯 오늘의 행동 제안
+        ${actions.joinToString("\n") { "• $it" }}
     """.trimIndent()
     }
 
