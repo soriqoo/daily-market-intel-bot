@@ -109,7 +109,7 @@ class MarketReportService(
         val sp = metrics.find { it.name == "S&P 500" }
         val nq = metrics.find { it.name == "Nasdaq" }
         val fx = metrics.find { it.name == "USDKRW" }
-        val y10 = metrics.find { it.name == "US 10Y" }
+        val y10 = metrics.find { it.name.contains("US 10Y") }
 
         fun pct(m: Metric?): String =
             m?.changePct?.setScale(2, RoundingMode.HALF_UP)?.toPlainString()?.let { "$it%" } ?: "-"
@@ -117,10 +117,19 @@ class MarketReportService(
         fun delta(m: Metric?): String =
             m?.change?.setScale(2, RoundingMode.HALF_UP)?.toPlainString() ?: "-"
 
-        fun num0(v: BigDecimal?): String = v?.setScale(0, RoundingMode.HALF_UP)?.toPlainString() ?: "-"
-        fun num2(v: BigDecimal?): String = v?.setScale(2, RoundingMode.HALF_UP)?.toPlainString() ?: "-"
+        fun num0(v: BigDecimal?): String =
+            v?.setScale(0, RoundingMode.HALF_UP)?.toPlainString() ?: "-"
 
-        // ========== 1) 헤드라인(요약) ==========
+        fun num2(v: BigDecimal?): String =
+            v?.setScale(2, RoundingMode.HALF_UP)?.toPlainString() ?: "-"
+
+        fun arrow(p: BigDecimal): String =
+            when {
+                p > BigDecimal.ZERO -> "▲"
+                p < BigDecimal.ZERO -> "▼"
+                else -> "—"
+            }
+
         val headline = buildList {
             sp?.changePct?.let { add("S&P ${arrow(it)} ${pct(sp)}") }
             nq?.changePct?.let { add("Nasdaq ${arrow(it)} ${pct(nq)}") }
@@ -128,56 +137,45 @@ class MarketReportService(
             y10?.value?.let { add("10Y ${num2(it)}%") }
         }.takeIf { it.isNotEmpty() }?.joinToString(" | ") ?: "데이터 수집 중"
 
-        // ========== 2) Metrics(단위 포함) ==========
         val metricLines = buildList {
-            sp?.let {
-                add("• 🔻/🔺 S&P 500: ${num2(it.value)} pt (Δ ${delta(it)} / ${pct(it)})")
-            } ?: add("• S&P 500: (N/A)")
-
-            nq?.let {
-                add("• 🔻/🔺 Nasdaq: ${num2(it.value)} pt (Δ ${delta(it)} / ${pct(it)})")
-            } ?: add("• Nasdaq: (N/A)")
-
-            fx?.let {
-                add("• 💵 USDKRW: ${num0(it.value)} 원/달러")
-            } ?: add("• USDKRW: (N/A)")
-
-            y10?.let {
-                add("• 🏦 US 10Y: ${num2(it.value)} %")
-            } ?: add("• US 10Y: (N/A)")
-        }.joinToString("\n")
-
-        // ========== 3) 룰 기반 해석(Policy) ==========
-        val interpretations = buildInterpretations(sp, nq, fx, y10)
-        val interpretationLines = if (interpretations.isEmpty()) "• 특별 신호 없음" else interpretations.joinToString("\n") { "• $it" }
-
-        // ========== 4) 액션(체크리스트) ==========
-        val actions = buildActions(sp, nq, fx, y10)
-        val actionLines = if (actions.isEmpty()) "• 체크할 항목 없음" else actions.joinToString("\n") { "• $it" }
-
-        // ========== 5) 오류 ==========
-        val errLines = if (errors.isNotEmpty()) {
-            errors.joinToString("\n") { "• $it" }
-        } else {
-            "• none"
+            sp?.let { add("• S&P 500: ${num2(it.value)} pt (Δ ${delta(it)} / ${pct(it)})") } ?: add("• S&P 500: (N/A)")
+            nq?.let { add("• Nasdaq: ${num2(it.value)} pt (Δ ${delta(it)} / ${pct(it)})") } ?: add("• Nasdaq: (N/A)")
+            fx?.let { add("• USDKRW: ${num0(it.value)} 원/달러") } ?: add("• USDKRW: (N/A)")
+            y10?.let { add("• US 10Y: ${num2(it.value)} %") } ?: add("• US 10Y: (N/A)")
         }
 
-        return """
-            *📊 DMIB Morning Brief*  ($runDate)
-            *Headline*  $headline
-            
-            *Metrics (단위 포함)*
-            $metricLines
-            
-            *Interpretation (룰 기반)*
-            $interpretationLines
-            
-            *Action Items (체크리스트)*
-            $actionLines
-            
-            *Fetch Errors*
-            $errLines
-        """.trimIndent()
+        val interpretationLines = buildInterpretations(sp, nq, fx, y10)
+            .ifEmpty { listOf("특별 신호 없음") }
+            .map { "• $it" }
+
+        val actionLines = buildActions(sp, nq, fx, y10)
+            .ifEmpty { listOf("체크할 항목 없음") }
+            .map { "• $it" }
+
+        val errorLines = if (errors.isEmpty()) {
+            listOf("• none")
+        } else {
+            errors.map { "• $it" }
+        }
+
+        val lines = mutableListOf<String>()
+        lines += "📊 *DMIB Morning Brief* ($runDate)"
+        lines += ""
+        lines += "*Headline*  $headline"
+        lines += ""
+        lines += "*Metrics*"
+        lines += metricLines
+        lines += ""
+        lines += "*Interpretation*"
+        lines += interpretationLines
+        lines += ""
+        lines += "*Action Items*"
+        lines += actionLines
+        lines += ""
+        lines += "*Fetch Errors*"
+        lines += errorLines
+
+        return lines.joinToString("\n")
     }
 
     private fun arrow(pct: BigDecimal): String =
@@ -296,17 +294,18 @@ class MarketReportService(
         - 과장 금지
         - 투자 확정적 표현 금지
         - 초보자도 이해 가능하게 작성
-    """.trimIndent()
+        """.trimIndent()
     }
 
-    private fun formatAiSection(aiJson: com.fasterxml.jackson.databind.JsonNode): String {
+    private fun formatAiSection(aiJson: JsonNode): String {
 
+        // Gemini가 JSON 파싱 실패하면 rawText로 들어오는 fallback
         val raw = aiJson["rawText"]?.asText()
         if (!raw.isNullOrBlank()) {
-            return """
-            *AI Analysis*
-            • $raw
-        """.trimIndent()
+            val lines = mutableListOf<String>()
+            lines += "*AI Analysis*"
+            lines += "• $raw"
+            return lines.joinToString("\n")
         }
 
         val signal = aiJson["signal"]?.asText() ?: "중립"
@@ -314,20 +313,25 @@ class MarketReportService(
         val risks = aiJson["risks"]?.mapNotNull { it.asText() }?.take(3).orEmpty()
         val actions = aiJson["actionItems"]?.mapNotNull { it.asText() }?.take(3).orEmpty()
 
-        return """
-        *AI Analysis*
-        
-        🧭 오늘 시장 신호: *$signal*
-        
-        📌 한 줄 요약
-        ${summary.joinToString("\n") { "• $it" }}
-        
-        ⚠️ 리스크 포인트
-        ${risks.joinToString("\n") { "• $it" }}
-        
-        🎯 오늘의 행동 제안
-        ${actions.joinToString("\n") { "• $it" }}
-    """.trimIndent()
+        // 비어 있으면 최소 문구
+        fun bullets(items: List<String>, emptyText: String): List<String> =
+            if (items.isEmpty()) listOf("• $emptyText") else items.map { "• $it" }
+
+        val lines = mutableListOf<String>()
+        lines += "*AI Analysis*"
+        lines += ""
+        lines += "🧭 오늘 시장 신호: *$signal*"
+        lines += ""
+        lines += "📌 한 줄 요약"
+        lines += bullets(summary, "요약 없음")
+        lines += ""
+        lines += "⚠️ 리스크 포인트"
+        lines += bullets(risks, "리스크 없음")
+        lines += ""
+        lines += "🎯 오늘의 행동 제안"
+        lines += bullets(actions, "행동 제안 없음")
+
+        return lines.joinToString("\n")
     }
 
     private fun BigDecimal.abs(): BigDecimal = this.abs()
