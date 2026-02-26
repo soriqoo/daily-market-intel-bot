@@ -299,10 +299,14 @@ class MarketReportService(
     """.trimIndent()
     }
 
-    private fun formatAiSection(aiJson: JsonNode): String {
+    private fun formatAiSection(aiJson: com.fasterxml.jackson.databind.JsonNode): String {
+
         val raw = aiJson["rawText"]?.asText()
         if (!raw.isNullOrBlank()) {
-            return "*AI Analysis*\n• $raw"
+            return """
+            *AI Analysis*
+            • $raw
+        """.trimIndent()
         }
 
         val signal = aiJson["signal"]?.asText() ?: "중립"

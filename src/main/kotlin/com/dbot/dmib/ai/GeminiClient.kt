@@ -13,7 +13,7 @@ class GeminiClient(
 ) {
     private val om = jacksonObjectMapper()
 
-    fun generateText(apiKey: String, model: String, prompt: String): Mono<String> {
+    fun generateJson(apiKey: String, model: String, prompt: String): Mono<JsonNode> {
         val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
 
         val body = mapOf(
@@ -36,18 +36,27 @@ class GeminiClient(
             .retrieve()
             .bodyToMono(JsonNode::class.java)
             .map { root ->
-                root["candidates"]?.get(0)?.get("content")?.get("parts")?.get(0)?.get("text")?.asText()
-                    ?: error("Gemini response missing text: ${root.toString().take(300)}")
-            }
-    }
+                val rawText = root["candidates"]
+                    ?.get(0)
+                    ?.get("content")
+                    ?.get("parts")
+                    ?.get(0)
+                    ?.get("text")
+                    ?.asText()
+                    ?: error("Gemini response missing text")
 
-    fun generateJson(apiKey: String, model: String, prompt: String): Mono<JsonNode> {
-        return generateText(apiKey, model, prompt).map { text ->
-            try {
-                om.readTree(text)
-            } catch (_: Exception) {
-                om.createObjectNode().put("rawText", text)
+                // ✅ 1. "json" prefix 제거
+                val cleaned = rawText
+                    .removePrefix("json")
+                    .removePrefix("```json")
+                    .removeSuffix("```")
+                    .trim()
+
+                try {
+                    om.readTree(cleaned)
+                } catch (e: Exception) {
+                    om.createObjectNode().put("rawText", cleaned)
+                }
             }
-        }
     }
 }
