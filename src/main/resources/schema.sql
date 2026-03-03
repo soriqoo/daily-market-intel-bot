@@ -5,3 +5,8 @@ CREATE TABLE IF NOT EXISTS job_run (
    sent_at TEXT,
    error TEXT
 );
+
+CREATE TABLE IF NOT EXISTS monitor_alert (
+    alert_key TEXT PRIMARY KEY,
+    last_sent_at TEXT NOT NULL
+);

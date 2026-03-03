@@ -7,6 +7,7 @@ import com.dbot.dmib.datasource.StooqClient
 import com.dbot.dmib.llm.OpenAiClient
 import com.dbot.dmib.notify.GmailNotifier
 import com.dbot.dmib.notify.SlackNotifier
+import com.dbot.dmib.store.MonitorAlertStore
 import com.dbot.dmib.store.RunStore
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.SpringBootApplication
@@ -60,6 +61,9 @@ class DailyMarketIntelBotApplication {
 	// === Store ===
 	@Bean
 	fun runStore(jdbc: JdbcTemplate) = RunStore(jdbc)
+
+	@Bean
+	fun monitorAlertStore(jdbc: JdbcTemplate) = MonitorAlertStore(jdbc)
 }
 
 fun main(args: Array<String>) {
