@@ -39,9 +39,14 @@ out/
 ### Kotlin ###
 .kotlin
 
-### Docker Env ###
+### secrets / runtime only ###
 .env
+runtime/.env
 docker-compose.override.yml
+repo/docker-compose.override.yml
+
+### private docs ###
+docs/RUNBOOK.private.md
 
 # Logs
 *.log
