@@ -64,6 +64,13 @@ Acceptance:
 - [ ] repo/docker-compose.yml에서 dmib 서비스: `build:` 제거하고 `image:` 기반으로 전환
 - [ ] runtime/.env에 `DMIB_IMAGE=` 추가(서버에서만 관리)
 - [ ] dmib.sh deploy: `pull + up`로 변경(빌드 제거)
+- Blocked: OCI Console 2FA reset required
+  - Blocked scope:
+    - OCIR Auth Token
+    - Registry login
+    - Image push/pull deployment
+  - Resume trigger:
+    - OCI Console login restored
 
 Acceptance:
 - OCI 서버에서 `git pull` 없이도 배포 가능
