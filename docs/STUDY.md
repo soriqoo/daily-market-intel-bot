@@ -118,6 +118,8 @@ GitHub Actions에서 초록 체크는 “그 커밋 기준으로 workflow가 성
 - `.github/workflows/*.yml` 변경은 GitHub에서만 실행된다.
 - 앱 런타임 변경이 없는 경우 OCI 재배포는 필요 없다.
 
+---
+
 ## 8) Matrix는 언제 쓰는가?
 Matrix는 하나의 job 정의로 여러 조합(OS, Java 버전 등)을 자동으로 실행하는 기능이다.
 DMIB 현재 단계에서는:
@@ -127,6 +129,8 @@ DMIB 현재 단계에서는:
 따라서 지금은 matrix를 도입하지 않는다.
 복잡도/시간 대비 이득이 적기 때문이다.
 
+---
+
 ## 9) 실무 브랜치 전략(혼자 개발 시)
 현재 추천 전략:
 - feature branch -> PR -> CI 통과 -> merge to main
@@ -135,3 +139,35 @@ dev 브랜치는 아직 도입하지 않는다.
 이유:
 - 단일 서비스/단일 운영 환경에서 규칙이 과도해질 수 있음
 - main을 “배포 가능한 상태”로 유지하는 감각을 배우는 것이 우선
+
+---
+
+## 10) Protected main branch 이후 개발 흐름
+main branch protection을 켜면 main에 직접 push할 수 없다.
+이후 표준 개발 흐름은 다음과 같다.
+
+1. main 최신화
+  - `git switch main`
+  - `git pull --ff-only`
+
+2. feature branch 생성
+  - `git switch -c feature/<task-name>`
+
+3. 작업 후 push
+  - `git add .`
+  - `git commit -m "..."`
+  - `git push -u origin feature/<task-name>`
+
+4. PR 생성
+  - GitHub에서 feature -> main PR 생성
+  - CI 통과 확인
+  - merge
+
+5. 로컬 정리
+  - `git switch main`
+  - `git pull --ff-only`
+  - `git branch -d feature/<task-name>`
+
+핵심:
+- main은 배포 가능한 상태를 유지한다.
+- 실험/변경은 feature branch에서만 한다.

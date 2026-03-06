@@ -121,3 +121,22 @@ Acceptance:
 3. Current Compliance update in docs
 4. Integrated monitoring service
 5. Resume OCIR after 2FA recovery
+
+---
+
+## Current Compliance (DMIB)
+- [x] Health endpoint (/actuator/health)
+- [x] Docker healthcheck
+- [x] Monitoring endpoint (/internal/monitoring/last-run)
+- [x] job_run execution record
+- [x] Slack alerting
+- [x] Idempotency (payload hash)
+- [x] Partial failure policy
+- [x] Monitoring scheduler
+- [x] Monitoring throttle (60m)
+- [x] Standard deploy script
+- [x] CI only (Gradle test + Docker build validation)
+- [x] Branch protection + required checks workflow
+- [x] Monitoring response schema standardization
+- [ ] CI/CD image push/pull deployment (blocked by OCI 2FA)
+- [ ] Integrated monitoring service

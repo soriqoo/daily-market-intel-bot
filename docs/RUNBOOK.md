@@ -42,3 +42,21 @@ Recommended:
 - Open PR to main
 - Wait for required checks
 - Merge after CI passes
+
+
+## Git workflow after branch protection
+### Rule
+Do not push directly to `main`.
+
+### Standard flow
+```bash
+git switch main
+git pull --ff-only
+git switch -c feature/<task-name>
+
+# work...
+git add .
+git commit -m "..."
+git push -u origin feature/<task-name>
+```
+
