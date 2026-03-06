@@ -141,3 +141,34 @@ DMIB가 운영 완전체가 되면 다음 단계는 “여러 Agent 컨테이너
 - https://docs.oracle.com/en-us/iaas/Content/Registry/Tasks/registrypushingimagesusingthedockercli.htm
 - https://docs.oracle.com/en-us/iaas/Content/Registry/Tasks/registrypullingimagesusingthedockercli.htm
 - https://github.com/oracle-actions/login-ocir
+
+---
+
+## 10. CI as a Guardrail (GitHub Actions CI-only)
+CI는 “배포 자동화” 이전의 단계로, 잘못된 변경이 main에 들어가는 것을 막는 보호장치(guardrail) 역할을 한다.
+
+DMIB는 현재 다음 CI를 사용한다.
+- Gradle test + bootJar
+- Docker build validation (arm64, thin packaging)
+
+핵심 교훈:
+- CI는 GitHub에서 push/PR 시점에 실행되며, 운영 서버(OCI)와는 직접 관계가 없다.
+- workflow 파일만 수정한 경우 OCI에 배포할 필요가 없다.
+- CI는 Liveness/Correctness가 아니라 “변경이 안전한지”를 사전에 검증하는 레이어다.
+
+### 왜 패키징 분리가 중요한가?
+초기에는 Docker 내부에서 Gradle 빌드를 수행하여 arm64 검증이 10분 이상 걸렸다.
+이후 CI에서:
+1. bootJar 생성
+2. artifact 업로드
+3. thin Docker packaging (`Dockerfile.ci`)
+   으로 분리하면서 Docker build validation 시간이 크게 줄었다.
+
+이는 실무적으로 흔한 패턴이다.
+- Build(artifact 생성)와 Package(이미지화)를 분리하면
+- CI 시간과 실패 원인 분리 품질이 크게 좋아진다.
+
+### 다음 운영 규율
+- main은 protected branch로 관리
+- required checks가 통과해야만 merge
+- 직접 main push는 지양 또는 금지

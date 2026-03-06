@@ -19,3 +19,26 @@
 
 ```bash
 dmib deploy
+```
+
+## CI / GitHub Actions
+### What CI validates
+- Gradle test + bootJar
+- Docker build validation (arm64, thin packaging)
+
+### Important rule
+Workflow-only changes (`.github/workflows/*.yml`) do NOT require OCI deploy.
+GitHub Actions runs on GitHub infrastructure when code is pushed.
+
+### When OCI deploy is required
+- Application code changes
+- Dockerfile / compose changes
+- Runtime behavior changes
+- Config affecting app behavior
+
+### Branch workflow
+Recommended:
+- Create a feature branch
+- Open PR to main
+- Wait for required checks
+- Merge after CI passes
