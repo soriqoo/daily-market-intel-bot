@@ -172,3 +172,16 @@ DMIB는 현재 다음 CI를 사용한다.
 - main은 protected branch로 관리
 - required checks가 통과해야만 merge
 - 직접 main push는 지양 또는 금지
+
+---
+
+## 11. Timezone correctness in scheduled agents
+Scheduler가 특정 timezone(예: Asia/Seoul) 기준으로 돌더라도, 코드에서 `LocalDate.now()`를 JVM 기본 timezone(예: UTC)으로 계산하면 runDate가 하루 어긋날 수 있다.
+
+DMIB에서 실제로 발생한 문제:
+- 08:00 KST에 리포트는 정상 전송됨
+- 그러나 runDate가 UTC 기준 전날로 저장됨
+- monitoring scheduler는 “오늘 run이 없다”고 판단하여 false positive 경고를 전송함
+
+교훈:
+- 스케줄 cron의 zone과 날짜 계산(`LocalDate.now(ZoneId.of(app.timezone))`)은 반드시 동일한 timezone 기준을 써야 한다.

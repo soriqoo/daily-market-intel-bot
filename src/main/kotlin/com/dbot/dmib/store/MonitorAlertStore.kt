@@ -8,15 +8,19 @@ class MonitorAlertStore(
     private val jdbcTemplate: JdbcTemplate
 ) {
     /**
-     * alertKey에 대해 throttleWindow 동안 "한 번만" 보내도록 토큰을 획득한다.
-     * - true: 지금 보내도 됨(기록/갱신 성공)
-     * - false: 아직 window 내라서 보내면 안 됨
-     *
-     * Postgres 기준으로 원자적으로 동작하도록 upsert + WHERE 조건을 사용.
+     * 같은 alertKey에 대해 throttleWindow 동안 한 번만 알림 전송 허용
+     * - true  -> 이번에는 전송해도 됨
+     * - false -> 아직 윈도우 안이라 skip
      */
-    fun tryAcquire(alertKey: String, throttleWindow: Duration, now: OffsetDateTime = OffsetDateTime.now()): Boolean {
-        val nowStr = now.toString()
-        val thresholdStr = now.minus(throttleWindow).toString()
+    fun tryAcquire(
+        alertKey: String,
+        throttleWindow: Duration,
+        now: OffsetDateTime = OffsetDateTime.now()
+    ): Boolean {
+        // 초/나노를 버려서 "10:00 vs 10:10" 오차를 조금 줄임
+        val normalizedNow = now.withSecond(0).withNano(0)
+        val nowStr = normalizedNow.toString()
+        val thresholdStr = normalizedNow.minus(throttleWindow).toString()
 
         val updated = jdbcTemplate.update(
             """
@@ -24,11 +28,11 @@ class MonitorAlertStore(
             VALUES(?, ?)
             ON CONFLICT(alert_key) DO UPDATE SET
               last_sent_at = EXCLUDED.last_sent_at
-            WHERE monitor_alert.last_sent_at < ?
+            WHERE monitor_alert.last_sent_at <= ?
             """.trimIndent(),
             alertKey, nowStr, thresholdStr
         )
-        // insert 또는 update 성공이면 1
+
         return updated == 1
     }
 }
