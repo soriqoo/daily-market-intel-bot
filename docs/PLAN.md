@@ -95,3 +95,29 @@ Acceptance:
 3) A4-3(Workflow 추가)
 4) A4-4(Compose/배포 스크립트 전환)
 5) A4-5(롤백)
+
+
+## Current Status Update
+### Completed
+- A1: Actuator + Docker healthcheck
+- A2: Monitoring scheduler + 60m throttle
+- A3: Runbook + deploy standardization
+- CI-1: GitHub Actions CI only (Gradle Test + Docker Build Validation)
+- CI-2: Docker build caching experiment
+- CI-3: Build/Package split with `Dockerfile.ci` and artifact-based docker validation
+
+### In Progress
+- BP-1: Protect `main` branch with required checks
+- Standardize workflow discipline:
+  - feature branch -> PR -> CI -> merge to main
+
+### Blocked
+- A4 OCIR / registry deployment transition
+  - blocked by OCI Console 2FA recovery
+
+### Next
+1. Branch protection + required checks
+2. (Optional) README badge
+3. Current Compliance update in docs
+4. Integrated monitoring service
+5. Resume OCIR after 2FA recovery
