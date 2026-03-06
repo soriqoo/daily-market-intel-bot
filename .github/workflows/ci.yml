@@ -58,3 +58,5 @@ jobs:
           platforms: linux/arm64
           push: false
           provenance: false
+          cache-from: type=gha,scope=dmib-arm64
+          cache-to: type=gha,mode=max,scope=dmib-arm64
