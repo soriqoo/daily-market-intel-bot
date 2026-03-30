@@ -52,24 +52,47 @@ class RunStore(private val jdbcTemplate: JdbcTemplate) {
     }
 
     fun markSent(runDate: LocalDate, payloadHash: String) {
+        val sentAt = OffsetDateTime.now().toString()
+        val updated = jdbcTemplate.update(
+            """
+            UPDATE job_run
+            SET status = 'SENT', payload_hash = ?, sent_at = ?, error = NULL
+            WHERE run_date = ?
+            """.trimIndent(),
+            payloadHash, sentAt, runDate.toString()
+        )
+
+        if (updated > 0) {
+            return
+        }
+
         jdbcTemplate.update(
             """
             INSERT INTO job_run(run_date, status, payload_hash, sent_at, error)
             VALUES(?, 'SENT', ?, ?, NULL)
-            ON CONFLICT(run_date) DO UPDATE SET
-              status='SENT', payload_hash=excluded.payload_hash, sent_at=excluded.sent_at, error=NULL
             """.trimIndent(),
-            runDate.toString(), payloadHash, OffsetDateTime.now().toString()
+            runDate.toString(), payloadHash, sentAt
         )
     }
 
     fun markFailed(runDate: LocalDate, payloadHash: String, error: String) {
+        val updated = jdbcTemplate.update(
+            """
+            UPDATE job_run
+            SET status = 'FAILED', payload_hash = ?, sent_at = NULL, error = ?
+            WHERE run_date = ?
+            """.trimIndent(),
+            payloadHash, error.take(2000), runDate.toString()
+        )
+
+        if (updated > 0) {
+            return
+        }
+
         jdbcTemplate.update(
             """
             INSERT INTO job_run(run_date, status, payload_hash, sent_at, error)
             VALUES(?, 'FAILED', ?, NULL, ?)
-            ON CONFLICT(run_date) DO UPDATE SET
-              status='FAILED', payload_hash=excluded.payload_hash, error=excluded.error
             """.trimIndent(),
             runDate.toString(), payloadHash, error.take(2000)
         )
