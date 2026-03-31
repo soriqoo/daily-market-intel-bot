@@ -1,59 +1,70 @@
-# DMIB â€” Daily Market Intelligence Bot
+# DMIB - Daily Market Intelligence Bot
 
-DMIBëŠ” **ë§¤ì¼ ì •í•´ì§„ ì‹œê°„ì— ì‹œì¥ ë°ì´í„°ë¥¼ ìˆ˜ì§‘í•˜ê³ **, (ì˜µì…˜) **AI ìš”ì•½ì„ ì¶”ê°€**í•˜ì—¬ **Slackìœ¼ë¡œ ì•„ì¹¨ ë¸Œë¦¬í•‘ì„ ë³´ë‚´ëŠ” ìë™í™” ë´‡**ì…ë‹ˆë‹¤.  
-ëª©í‘œëŠ” â€œì‘ë™í•˜ëŠ” ë´‡â€ì´ ì•„ë‹ˆë¼, **ìš´ì˜ ê°€ëŠ¥í•œ(Production-grade) ìë™í™” ì‹œìŠ¤í…œ**ì„ ë§Œë“œëŠ” ê²ƒì…ë‹ˆë‹¤.
+DMIB´Â ¸ÅÀÏ Á¤ÇØÁø ½Ã°£¿¡ ½ÃÀå µ¥ÀÌÅÍ¸¦ ¼öÁıÇÏ°í, ±ÔÄ¢ ±â¹İ ÇØ¼®°ú ¼±ÅÃÀû AI ¿ä¾àÀ» ´õÇØ SlackÀ¸·Î Àü¼ÛÇÏ´Â ÀÚµ¿È­ º¿ÀÔ´Ï´Ù.
 
----
+ÀÌ ÀúÀå¼ÒÀÇ ¸ñÇ¥´Â ´Ü¼øÇÑ »çÀÌµå ÇÁ·ÎÁ§Æ®°¡ ¾Æ´Ï¶ó, ½ÇÁ¦ ¼­ºñ½º ¿î¿µÀ» ¿°µÎ¿¡ µĞ ¹é¿£µå ÀÚµ¿È­ ½Ã½ºÅÛÀ» ¸¸µå´Â °ÍÀÔ´Ï´Ù.
 
 ## What it does
 
-- Scheduler ê¸°ë°˜ ìë™ ì‹¤í–‰(ì¼ì¼ ë¸Œë¦¬í•‘)
-- Market data ìˆ˜ì§‘
-    - FRED (S&P 500, Nasdaq, US10Y ë“±)
-    - í™˜ìœ¨(USD/KRW)
-- ë£° ê¸°ë°˜ í•´ì„(ì´ˆë³´ì ì¹œí™” â€œInterpretation / Action Itemsâ€)
-- (ì˜µì…˜) Gemini ì¡°ê±´ë¶€ í˜¸ì¶œë¡œ AI ë¶„ì„ ì„¹ì…˜ ì¶”ê°€
-- Slack Webhook ì•Œë¦¼
-- PostgreSQLì— ì‹¤í–‰ ê²°ê³¼ ê¸°ë¡(job_run)
-- ìš´ì˜ ê¸°ëŠ¥
-    - Actuator health (`/actuator/health`)
-    - Docker healthcheck
-    - ë¯¸ì‹¤í–‰/ì‹¤íŒ¨ ê°ì§€ + throttle(ì¤‘ë³µ ì•Œë¦¼ ì–µì œ)
-    - ë°°í¬ í‘œì¤€í™” ìŠ¤í¬ë¦½íŠ¸(`dmib.sh deploy`)
-
----
+- ½ºÄÉÁÙ ±â¹İ µ¥ÀÏ¸® ºê¸®ÇÁ »ı¼º
+- ½ÃÀå µ¥ÀÌÅÍ ¼öÁı
+  - FRED: S&P 500, Nasdaq, US 10Y
+  - È¯À²: USD/KRW
+- ±ÔÄ¢ ±â¹İ ÇØ¼®
+- ¼±ÅÃÀû AI ºĞ¼® ¼½¼Ç Ãß°¡
+- Slack Webhook Àü¼Û
+- PostgreSQL ±â¹İ ½ÇÇà ±â·Ï ÀúÀå
+- ¿î¿µ ±â´É
+  - `/actuator/health`
+  - Docker healthcheck
+  - ¹Ì½ÇÇà/½ÇÆĞ °¨Áö
+  - Áßº¹ ¾Ë¸² ¾ïÁ¦
+  - Ç¥ÁØ ¹èÆ÷ ½ºÅ©¸³Æ®
 
 ## Docs
 
-- Research / ìš´ì˜ ì´ë¡ : `docs/RESEARCH.md`
-- êµ¬í˜„ ê³„íš: `docs/PLAN.md`
-- í•™ìŠµ ìš”ì•½ + ì§ˆë¬¸ í…œí”Œë¦¿: `docs/STUDY.md`
-- ìš´ì˜ Runbook: `docs/RUNBOOK.md`
-- ADR(ì„¤ê³„ ê²°ì • ê¸°ë¡): `docs/adr/`
+- ¿¬±¸ ¹× ¿î¿µ ¼³°è: `docs/RESEARCH.md`
+- ±¸Çö °èÈ¹: `docs/PLAN.md`
+- ÇĞ½À ¸Ş¸ğ: `docs/STUDY.md`
+- ¿î¿µ Runbook: `docs/RUNBOOK.md`
+- ¹èÆ÷ Á¤Ã¥: `docs/DEPLOYMENT.md`
+- ¿¡ÀÌÀüÆ® °øÅë °è¾à: `docs/AGENT_CONTRACT.md`
+- Çù¾÷ ±ÔÄ¢: `docs/CODEX_COLLABORATION.md`
 
----
+## Repository policy
 
-## Repository policy (Public-safe)
+Commit OK:
+- ÄÚµå
+- ¼³Á¤ ÅÛÇÃ¸´
+- °ø°³ °¡´ÉÇÑ ¹®¼­
+- `.env.example`
 
-âœ… Commit OK
-- ì½”ë“œ/ì„¤ì • í…œí”Œë¦¿
-- docs/ ë¬¸ì„œ (ë¹„ë°€ ì œì™¸)
-- `.env.example` ê°™ì€ ì˜ˆì‹œ íŒŒì¼
-
-âŒ NEVER commit
-- `.env` (ì‹¤ì œ ìš´ì˜ ê°’)
-- Slack webhook URL
-- Gemini/OpenAI API Key
-- OCI Auth Token / SSH private key
-- `docker-compose.override.yml` (ì„œë²„ ì „ìš© override)
-
----
+Never commit:
+- `.env`
+- ½ÇÁ¦ Slack webhook URL
+- Gemini/OpenAI API key
+- OCI auth token / SSH private key
+- ¿î¿µ Àü¿ë override ÆÄÀÏ
 
 ## Local development
 
-Prereqs:
+Prerequisites:
 - JDK 21
 - Gradle wrapper
 
 ```bash
 ./gradlew clean test
+```
+
+## Branch workflow
+
+```bash
+git switch main
+git pull --ff-only
+git switch -c feature/<task-name>
+
+# work...
+git add .
+git commit -m "..."
+git push -u origin feature/<task-name>
+```

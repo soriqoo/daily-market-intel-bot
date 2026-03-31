@@ -49,6 +49,7 @@
 - Prefer feature-branch workflow instead of direct `main` edits.
 - Review every task with `git status` and `git diff`.
 - Generated files should stay out of version control unless intentionally committed.
+- Text files should use UTF-8 and follow repo line-ending rules (`LF` by default, `CRLF` only for `.bat` and `.cmd`).
 - After each meaningful change, check:
   - code diff
   - test result

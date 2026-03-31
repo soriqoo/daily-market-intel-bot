@@ -1,142 +1,76 @@
-# PLAN.md â€” DMIB êµ¬í˜„/ë°˜ì˜ ê³„íšì„œ (ìš´ì˜ ì™„ì „ì²´ + CI/CD ì „í™˜)
+# PLAN.md
 
-## 0) í˜„ì¬ ìƒíƒœ(Completed)
-- A1: Actuator + Docker healthcheck ì ìš© (dmib ì»¨í…Œì´ë„ˆ healthy í™•ì¸)
-- A2: ë¯¸ì‹¤í–‰/ì‹¤íŒ¨ ê°ì§€ ìŠ¤ì¼€ì¤„ëŸ¬ + throttle(60ë¶„) ì ìš©
-- A3: runbook(RUNBOOK.md) + dmib.sh deploy/sync í‘œì¤€í™” ì ìš©
+## Goal
 
-## 1) ëª©í‘œ ìƒíƒœ(To-Be)
-- ìš´ì˜ ì„œë²„ëŠ” git pullë¡œ ë°°í¬í•˜ì§€ ì•ŠëŠ”ë‹¤.
-- GitHub Actionsê°€ ì´ë¯¸ì§€ë¥¼ ë¹Œë“œ/í…ŒìŠ¤íŠ¸/í‘¸ì‹œí•˜ê³ ,
-- OCI ì„œë²„ëŠ” ë ˆì§€ìŠ¤íŠ¸ë¦¬ì—ì„œ **ì´ë¯¸ì§€ë¥¼ pull**ë§Œ í•œë‹¤.
-- ë¬¸ì œê°€ ìƒê¸°ë©´ runbookì„ ë”°ë¼ 5ë¶„ ë‚´ ì›ì¸ ë²”ìœ„ë¥¼ ì¢í ìˆ˜ ìˆë‹¤.
+DMIB¸¦ ´Ü¼ø ÀÚµ¿È­ ½ºÅ©¸³Æ®°¡ ¾Æ´Ï¶ó ¿î¿µ °¡´ÉÇÑ ¹é¿£µå ¼­ºñ½º·Î ¹ßÀü½ÃÅ²´Ù.
 
----
+ÇÙ½É ¸ñÇ¥:
+- ¸ÅÀÏ ¾ÈÁ¤ÀûÀ¸·Î ½ÃÀå ºê¸®ÇÁ¸¦ Àü¼ÛÇÑ´Ù.
+- ½ÇÆĞ¿Í ¹Ì½ÇÇàÀ» °¨ÁöÇÑ´Ù.
+- ¿î¿µ ÀıÂ÷¿Í ¹®¼­¸¦ ÇÔ²² °ü¸®ÇÑ´Ù.
+- ÀÌÈÄ ÅëÇÕ ¸ğ´ÏÅÍ¸µ ¼­ºñ½º¿Í ¿©·¯ º¿À¸·Î È®Àå °¡´ÉÇÑ ±¸Á¶¸¦ ¸¸µç´Ù.
 
-## 2) A4: CI/CD (GitHub Actions + OCIR + ì„œë²„ pull-only)
+## Completed
 
-### A4-0 ì„¤ê³„ ê²°ì •
-- Registry: OCIR(Oracle Container Registry)
-- CI: GitHub Actions
-- Deploy ë°©ì‹: SSHë¡œ OCI ì ‘ì†í•´ `docker compose pull && up -d` ì‹¤í–‰
-- ì´ë¯¸ì§€ íƒœê¹…:
-    - ì•ˆì • íƒœê·¸: `main`
-    - ë¶ˆë³€ íƒœê·¸: `sha-<GITHUB_SHA>`
-    - ì„œë²„ëŠ” `sha-<GITHUB_SHA>`ë¡œ pin(ê¶Œì¥)
+- Actuator + Docker healthcheck Àû¿ë
+- ½ÇÇà °á°ú ÀúÀå(`job_run`)
+- Slack Àü¼Û + payload hash ±â¹İ Áßº¹ ¹æÁö
+- ºÎºĞ ½ÇÆĞ Çã¿ë Á¤Ã¥ Àû¿ë
+- ¸ğ´ÏÅÍ¸µ API(`/internal/monitoring/last-run`) Ãß°¡
+- ¹Ì½ÇÇà/½ÇÆĞ °¨Áö ½ºÄÉÁÙ·¯ Ãß°¡
+- ¾Ë¸² ¸®¸¶ÀÎµå Á¤Ã¥ °³¼±
+- Runbook / ¹èÆ÷ Ç¥ÁØÈ­ ¹®¼­ ÀÛ¼º
+- GitHub Actions CI ±¸Ãà
+  - Gradle test
+  - bootJar
+  - Docker build validation
+- feature branch -> PR -> merge ¿öÅ©ÇÃ·Î¿ì Àû¿ë
 
-### A4-1 OCIR ì¤€ë¹„(ìˆ˜ë™ 1íšŒ)
-- [ ] OCIR Auth Token ìƒì„±
-- [ ] Tenancy namespace í™•ì¸(Object Storage namespace)
-- [ ] region-key í™•ì¸(ì˜ˆ: icn, iad ë“±)
-- [ ] OCIR repo ìƒì„±(dmib)
-- [ ] OCI ì„œë²„ì—ì„œ docker login ìˆ˜í–‰(1íšŒ)
+## In Progress
 
-Acceptance:
-- `docker login <region-key>.ocir.io` ì„±ê³µ
-- `docker pull <registry>/<namespace>/dmib:main` ê°€ëŠ¥(ì¼ë‹¨ì€ ë¹ˆ repoë©´ ë¶ˆê°€ â†’ CI push í›„ ê°€ëŠ¥)
+- ¿î¿µ ¹®¼­ UTF-8 Á¤¸®
+- ¸Ş½ÃÁö/ÁÖ¼® ÀÎÄÚµù Á¤¸®
+- ¸ğ´ÏÅÍ¸µ Á¤Ã¥ ¸®ÆÑÅÍ¸µ ÈÄ ¿î¿µ °ËÁõ
 
-### A4-2 GitHub Secrets ì¤€ë¹„
-- [ ] OCI_REGION_KEY
-- [ ] OCI_TENANCY_NAMESPACE
-- [ ] OCI_USERNAME (federatedë©´ domain í¬í•¨)
-- [ ] OCI_AUTH_TOKEN
-- [ ] OCI_SSH_HOST (public IP)
-- [ ] OCI_SSH_USER (= ubuntu)
-- [ ] OCI_SSH_PRIVATE_KEY (pem ë‚´ìš©)
-- [ ] DMIB_BASE=/home/ubuntu/ai_project/apps/dmib
+## Blocked
 
-Acceptance:
-- Actionsì—ì„œ registry login step í†µê³¼(ë³´ì•ˆìƒ ë¡œê·¸ ë§ˆìŠ¤í‚¹ í™•ì¸)
+- OCI Console 2FA º¹±¸ Àü±îÁö OCIR ±â¹İ ¹èÆ÷ ÀüÈ¯ º¸·ù
 
-### A4-3 Workflow ì¶”ê°€(.github/workflows/release.yml)
-- [ ] checkout
-- [ ] setup qemu/buildx
-- [ ] login OCIR
-- [ ] build+push multi-arch(arm64 í¬í•¨)
-- [ ] SSH deploy: ì„œë²„ runtime/.envì˜ DMIB_IMAGE ê°±ì‹  â†’ compose pull/up
-- [ ] health í™•ì¸ê¹Œì§€ ì¶œë ¥
+## Next
 
-Acceptance:
-- main push ì‹œ ìë™ìœ¼ë¡œ OCIRì— ì´ë¯¸ì§€ê°€ ì˜¬ë¼ê°
-- workflowê°€ OCIì—ì„œ `dmib health`ê°€ UPì¼ ë•Œ ì„±ê³µ ì²˜ë¦¬
+1. °øÅë ¸ğ´ÏÅÍ¸µ API °è¾à Á¤¸®
+2. DMIB¸¦ ÅëÇÕ ¸ğ´ÏÅÍ¸µ ´ë»ó ¼­ºñ½ºÀÇ Ã¹ ±¸ÇöÃ¼·Î Á¤¸®
+3. ³»ºÎ API ³ëÃâ/º¸¾È Á¤Ã¥ Á¡°Ë
+4. ¹®¼­ °øÅë ÅÛÇÃ¸´ Á¤¸®
+5. OCIR ±â¹İ ¹èÆ÷ ÀüÈ¯ Àç°³
 
-### A4-4 Compose ì „í™˜(ì„œë²„ pull-only)
-- [ ] repo/docker-compose.ymlì—ì„œ dmib ì„œë¹„ìŠ¤: `build:` ì œê±°í•˜ê³  `image:` ê¸°ë°˜ìœ¼ë¡œ ì „í™˜
-- [ ] runtime/.envì— `DMIB_IMAGE=` ì¶”ê°€(ì„œë²„ì—ì„œë§Œ ê´€ë¦¬)
-- [ ] dmib.sh deploy: `pull + up`ë¡œ ë³€ê²½(ë¹Œë“œ ì œê±°)
-- Blocked: OCI Console 2FA reset required
-  - Blocked scope:
-    - OCIR Auth Token
-    - Registry login
-    - Image push/pull deployment
-  - Resume trigger:
-    - OCI Console login restored
+## Deployment Transition Plan
 
-Acceptance:
-- OCI ì„œë²„ì—ì„œ `git pull` ì—†ì´ë„ ë°°í¬ ê°€ëŠ¥
-- `dmib deploy`ê°€ â€œì´ë¯¸ì§€ ê°±ì‹ â€ì„ ìˆ˜í–‰
+### Target
+- GitHub Actions¿¡¼­ ÀÌ¹ÌÁö ºôµå/°ËÁõ
+- Registry push
+- ¼­¹ö´Â `pull + up -d`¸¸ ¼öÇà
 
-### A4-5 ë¡¤ë°± ì „ëµ(ìµœì†Œ)
-- [ ] ìµœê·¼ sha íƒœê·¸ 3ê°œ ì •ë„ ê¸°ë¡(ê°€ì¥ ì‰¬ì›€: GitHub release note ë˜ëŠ” ê°„ë‹¨ ë¡œê·¸ íŒŒì¼)
-- [ ] rollbackì€ runtime/.envì˜ DMIB_IMAGEë¥¼ ì´ì „ shaë¡œ ë°”ê¾¸ê³  `dmib restart`
+### Checklist
+- [ ] OCIR auth token ¹ß±Ş
+- [ ] namespace / region È®ÀÎ
+- [ ] GitHub Secrets µî·Ï
+- [ ] release workflow Ãß°¡
+- [ ] compose¸¦ image ±â¹İÀ¸·Î ÀüÈ¯
+- [ ] rollback ÀıÂ÷ ¹®¼­È­
 
----
+## Current Compliance
 
-## 3) ìš´ì˜ ê°•í™”(ì°¨í›„)
-- [ ] ì•Œë¦¼ ì •ì±…: ì‹¤íŒ¨ ìœ í˜•ë³„ severity ë¶„ë¦¬(critical/warn)
-- [ ] í†µí•© ëª¨ë‹ˆí„°ë§ í”„ë¡œì íŠ¸(ì—¬ëŸ¬ ì»¨í…Œì´ë„ˆ last-run ìˆ˜ì§‘)
-- [ ] ë¹„ìš©/í˜¸ì¶œëŸ‰ ì¶”ì (LLM í˜¸ì¶œ íšŸìˆ˜/í† í°)
-
----
-
-## 4) ë°˜ì˜ ìˆœì„œ(ì ˆëŒ€ ìˆœì„œ)
-1) A4-1(OCIR ì¤€ë¹„)
-2) A4-2(GitHub Secrets)
-3) A4-3(Workflow ì¶”ê°€)
-4) A4-4(Compose/ë°°í¬ ìŠ¤í¬ë¦½íŠ¸ ì „í™˜)
-5) A4-5(ë¡¤ë°±)
-
-
-## Current Status Update
-### Completed
-- A1: Actuator + Docker healthcheck
-- A2: Monitoring scheduler + 60m throttle
-- A3: Runbook + deploy standardization
-- CI-1: GitHub Actions CI only (Gradle Test + Docker Build Validation)
-- CI-2: Docker build caching experiment
-- CI-3: Build/Package split with `Dockerfile.ci` and artifact-based docker validation
-
-### In Progress
-- BP-1: Protect `main` branch with required checks
-- Standardize workflow discipline:
-  - feature branch -> PR -> CI -> merge to main
-
-### Blocked
-- A4 OCIR / registry deployment transition
-  - blocked by OCI Console 2FA recovery
-
-### Next
-1. Branch protection + required checks
-2. (Optional) README badge
-3. Current Compliance update in docs
-4. Integrated monitoring service
-5. Resume OCIR after 2FA recovery
-
----
-
-## Current Compliance (DMIB)
-- [x] Health endpoint (/actuator/health)
+- [x] Health endpoint
 - [x] Docker healthcheck
-- [x] Monitoring endpoint (/internal/monitoring/last-run)
-- [x] job_run execution record
+- [x] Monitoring endpoint
+- [x] Execution record
 - [x] Slack alerting
-- [x] Idempotency (payload hash)
+- [x] Idempotency
 - [x] Partial failure policy
 - [x] Monitoring scheduler
-- [x] Monitoring throttle (60m)
+- [x] Monitoring reminder policy
 - [x] Standard deploy script
-- [x] CI only (Gradle test + Docker build validation)
-- [x] Branch protection + required checks workflow
-- [x] Monitoring response schema standardization
-- [ ] CI/CD image push/pull deployment (blocked by OCI 2FA)
+- [x] CI validation
+- [ ] Registry-based deployment
 - [ ] Integrated monitoring service

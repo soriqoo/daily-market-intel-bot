@@ -1,4 +1,4 @@
-package com.dbot.dmib.notify
+﻿package com.dbot.dmib.notify
 
 import com.dbot.dmib.config.AppProperties
 import org.springframework.web.bind.annotation.PostMapping
@@ -13,7 +13,7 @@ class TestSlackController(
     @PostMapping("/internal/test/slack")
     fun testSlack(): Mono<String> {
         if (!props.slack.enabled || slack == null) return Mono.just("SLACK disabled")
-        return slack.send("DMIB app slack test ✅")
+        return slack.send("DMIB app slack test")
             .thenReturn("SENT")
     }
 }

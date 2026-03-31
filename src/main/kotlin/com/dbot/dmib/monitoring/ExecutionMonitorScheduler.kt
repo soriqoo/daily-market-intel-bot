@@ -1,4 +1,4 @@
-package com.dbot.dmib.monitoring
+﻿package com.dbot.dmib.monitoring
 
 import com.dbot.dmib.notify.SlackNotifier
 import com.dbot.dmib.store.MonitorAlertStore
@@ -81,17 +81,17 @@ class ExecutionMonitorScheduler(
         }
 
         val msg = buildString {
-            append("?�️ *DMIB 미실???�패 감�?* ($today)\n")
-            append("??latestRunDate: ${latestRunDate ?: "null"}\n")
-            append("??latestStatus: ${latestStatus ?: "null"}\n")
-            append("??sentAt: ${latestSentAt ?: "null"}\n")
+            append(":warning: *DMIB 미실행/실패 감지* ($today)\n")
+            append("- latestRunDate: ${latestRunDate ?: "null"}\n")
+            append("- latestStatus: ${latestStatus ?: "null"}\n")
+            append("- sentAt: ${latestSentAt ?: "null"}\n")
             if (!latestError.isNullOrBlank()) {
-                append("??error: ${latestError.take(300)}\n")
+                append("- error: ${latestError.take(300)}\n")
             }
             append("\n조치:\n")
-            append("1) dmib logs ?�인\n")
-            append("2) ?��? API/FRED/?�율 ?�답 ?�인\n")
-            append("3) ?�요 ??dmib restart")
+            append("1) dmib logs 확인\n")
+            append("2) 외부 API/FRED/환율 응답 확인\n")
+            append("3) 필요 시 dmib restart")
         }
 
         slack.send(msg).subscribe()
