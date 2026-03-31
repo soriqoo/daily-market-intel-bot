@@ -1,70 +1,107 @@
-# CODEX Collaboration Guide
+# CODEX 협업 가이드
 
-## Goal
-- Build the project and improve it in a production-friendly way.
-- Learn practical development, review, and operational habits during the process.
+## 문서 목적
 
-## Working Style
-- Codex should not only suggest ideas, but also inspect code, implement changes, run tests, and explain why the change is practical.
-- Each task should be handled with both delivery and learning in mind.
-- If required information is missing and affects architecture, security, deployment, or external integrations, clarify it first.
+이 문서는 이 저장소에서 Codex와 사람 개발자가 어떤 방식으로 협업할지 정리한 기준 문서다.
 
-## Standard Task Flow
-1. Clarify the goal and expected behavior.
-2. Inspect the affected files and explain the impact scope.
-3. Share a short implementation plan.
-4. Make the code change.
-5. Run validation such as tests or targeted verification.
-6. Summarize:
-   - what changed
-   - why it changed
-   - how to review it in Git or IntelliJ
-   - what risks or next steps remain
+목표는 두 가지다.
+- 기능을 빠르게 구현하는 것
+- 구현 과정 자체를 실무 학습 경험으로 만드는 것
 
-## Default Response Format For Project Tasks
-- Goal: what we are trying to achieve
-- Affected files: the main files involved
-- Plan: the implementation or review steps
-- Result: what changed
-- Verification: what was tested or what could not be tested
-- Practical note: the engineering lesson or real-world reason behind the change
+즉, DMIB에서는 Codex를 단순한 코드 생성기가 아니라 코드베이스를 읽고, 수정하고, 테스트하고, 리뷰 포인트까지 설명해 주는 페어 프로그래머로 활용한다.
 
-## Review Mode
-- When asked for review, prioritize:
-  - bugs
-  - behavioral regressions
-  - operational risks
-  - missing tests
-- Keep summaries short until findings are covered.
+## 기본 원칙
 
-## Learning Mode
-- Explain changes as if pairing with a junior engineer on a real team.
-- Prefer concrete tradeoffs over abstract theory.
-- Point out practical patterns:
-  - why a test is valuable
-  - why a design is easier to maintain
-  - what would matter in CI/CD or production
+- 모든 작업은 결과물뿐 아니라 학습 가치도 함께 남겨야 한다.
+- 기능 구현 요청이라도 영향 범위, 운영 리스크, 테스트 포인트를 같이 본다.
+- 문서, 설정, 운영 절차는 코드와 같은 중요도로 다룬다.
+- 보안, 배포, 스키마, 외부 연동처럼 파급 효과가 큰 변경은 먼저 확인하고 진행한다.
 
-## Git And Change Review
-- Prefer feature-branch workflow instead of direct `main` edits.
-- Review every task with `git status` and `git diff`.
-- Generated files should stay out of version control unless intentionally committed.
-- Text files should use UTF-8 and follow repo line-ending rules (`LF` by default, `CRLF` only for `.bat` and `.cmd`).
-- After each meaningful change, check:
-  - code diff
-  - test result
-  - docs/config impact
+## 표준 작업 흐름
 
-## When Codex Should Pause And Ask First
-- Security-sensitive changes
-- Public/internal endpoint exposure decisions
-- Infra or deployment behavior changes
-- Schema migrations with non-obvious production impact
-- LLM provider strategy changes
+1. 목표와 기대 동작을 분명히 한다.
+2. 영향을 받는 파일과 연관 컴포넌트를 먼저 확인한다.
+3. 구현 계획을 짧게 공유한다.
+4. 코드와 문서를 함께 수정한다.
+5. 테스트나 검증 명령으로 결과를 확인한다.
+6. 마지막에는 아래 내용을 정리한다.
+   - 무엇이 바뀌었는지
+   - 왜 그렇게 바꿨는지
+   - 어떻게 리뷰하면 되는지
+   - 남아 있는 리스크나 다음 단계가 무엇인지
 
-## This Project's Current Priority Order
-1. Test coverage for core behavior
-2. Internal endpoint safety and operating policy
-3. LLM integration strategy cleanup
-4. Message and encoding cleanup
-5. Deployment/documentation alignment
+## 기본 응답 형식
+
+프로젝트 작업 결과는 가능하면 아래 구조를 따른다.
+- Goal: 이번 작업의 목표
+- Affected files: 주요 변경 파일
+- Plan: 구현 또는 검토 방식
+- Result: 실제 변경 내용
+- Verification: 테스트 또는 검증 결과
+- Practical note: 실무 관점에서 왜 의미가 있는지
+
+## 리뷰 모드 기준
+
+리뷰 요청 시 우선순위는 아래와 같다.
+- 버그
+- 회귀 위험
+- 운영 영향
+- 테스트 누락
+- 문서 및 설정 반영 누락
+
+설명은 짧게 해도 되지만, 문제를 발견했다면 요약보다 findings를 먼저 제시한다.
+
+## 학습 모드 기준
+
+이 프로젝트는 단순 구현보다 실무 감각을 익히는 목적이 크므로, 설명은 아래 기준을 따른다.
+- 주니어와 페어 프로그래밍하듯 설명한다.
+- 추상적인 이론보다 실제 운영 상황에서 왜 중요한지 설명한다.
+- 테스트, 배포, 모니터링, 롤백 관점의 의미를 함께 짚는다.
+- 가능한 경우 대안과 트레이드오프를 짧게 비교한다.
+
+## Git 협업 규칙
+
+- `main`에는 직접 작업하지 않는다.
+- 항상 최신 `main`에서 feature 브랜치를 따고 작업한다.
+- PR merge 후에만 로컬 feature 브랜치를 삭제한다.
+- 작업 후에는 반드시 `git status`, `git diff`, 테스트 결과를 함께 확인한다.
+
+권장 흐름:
+
+```bash
+git switch main
+git pull --ff-only
+git switch -c feature/<task-name>
+
+# work...
+git add .
+git commit -m "..."
+git push -u origin feature/<task-name>
+```
+
+## 인코딩 및 문서 규칙
+
+- 텍스트 파일은 UTF-8을 기본으로 사용한다.
+- 줄바꿈은 기본적으로 LF를 사용한다.
+- `.bat`, `.cmd`만 CRLF를 허용한다.
+- 한글이 포함된 파일은 전체 재작성보다 작은 단위 수정이 안전하다.
+- README는 공개 오픈소스 문서 톤을 유지하고, 운영/학습 문서는 한국어 실무 문서 톤을 유지한다.
+
+## 먼저 확인이 필요한 변경
+
+아래 항목은 바로 수정하지 않고 먼저 확인하는 편이 좋다.
+- 외부 공개 엔드포인트 추가 또는 변경
+- 인증/보안 정책 변경
+- 운영 배포 흐름 변경
+- 스키마 마이그레이션
+- LLM 공급자 전략 변경
+- 비용이 발생하는 외부 서비스 연동
+
+## 현재 우선순위
+
+현재 저장소 기준 우선순위는 아래와 같다.
+1. 핵심 동작 테스트 보강
+2. 공통 모니터링 계약 정리
+3. 통합 모니터링 서비스로 확장 가능한 구조 정리
+4. 배포 방식을 image pull 기반으로 전환
+5. 운영 문서와 코드 구조의 템플릿화
