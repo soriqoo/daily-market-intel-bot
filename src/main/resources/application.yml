@@ -2,6 +2,8 @@ app:
   timezone: "Asia/Seoul"
   schedule:
     cron: "0 0 8 * * *"
+  monitoring:
+    check-cron: "0 */10 8-11 * * *"
   ai:
     enabled: "${GEMINI_ENABLED:false}"
     geminiApiKey: "${GEMINI_API_KEY:}"

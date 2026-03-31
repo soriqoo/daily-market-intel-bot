@@ -7,7 +7,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.time.Duration
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -20,20 +19,21 @@ class ExecutionMonitorScheduler(
     @Value("\${app.timezone}") private val appTimezone: String
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
-    private val throttleWindow: Duration = Duration.ofMinutes(60)
 
     @Volatile
     private var lastFallbackAlertAt: OffsetDateTime? = null
 
-    /**
-     * 08:00~11:59 사이 10분마다 실행
-     * - 오늘 runDate가 SENT가 아니면 경고
-     * - 같은 날짜 경고는 60분에 1번만
-     */
-    @Scheduled(cron = "0 */10 8-11 * * *", zone = "\${app.timezone}")
+    @Scheduled(cron = "\${app.monitoring.check-cron}", zone = "\${app.timezone}")
     fun checkMorningRun() {
         val zone = ZoneId.of(appTimezone)
+        val now = MonitoringAlertPolicy.normalize(OffsetDateTime.now(zone))
         val today = LocalDate.now(zone)
+        val alertKey = "DMIB_MISSED_OR_FAILED_$today"
+
+        if (now.hour == 8 && now.minute == 0) {
+            log.info("Monitoring warm-up tick skipped. now={}", now)
+            return
+        }
 
         val latest = runStore.findLatest()
         val latestRunDate = latest?.runDate
@@ -51,25 +51,21 @@ class ExecutionMonitorScheduler(
 
         val ok = latestRunDate == today && latestStatus == "SENT"
         if (ok) {
+            clearAlertState(alertKey)
             log.info("Monitoring OK. today={}, latestStatus={}", today, latestStatus)
             return
         }
 
-        val alertKey = "DMIB_MISSED_OR_FAILED_$today"
-
         val shouldSend = try {
-            alertStore.tryAcquire(alertKey, throttleWindow)
+            alertStore.tryAcquire(alertKey, now)
         } catch (e: Exception) {
-            // DB 자체가 죽어 throttle 테이블을 못 쓰는 경우 fallback
-            val now = OffsetDateTime.now().withSecond(0).withNano(0)
-            val last = lastFallbackAlertAt
-            val allow = last == null || Duration.between(last, now) >= throttleWindow
+            val allow = MonitoringAlertPolicy.shouldSend(now, lastFallbackAlertAt)
             if (allow) {
                 lastFallbackAlertAt = now
             }
 
             log.warn(
-                "AlertStore failed (fallback throttle). allow={}, err={}",
+                "AlertStore failed (fallback policy). allow={}, err={}",
                 allow,
                 e.message ?: e.javaClass.simpleName
             )
@@ -78,30 +74,44 @@ class ExecutionMonitorScheduler(
 
         if (!shouldSend) {
             log.info(
-                "Monitoring alert throttled. key={}, windowMinutes={}, latestRunDate={}, latestStatus={}",
-                alertKey, throttleWindow.toMinutes(), latestRunDate, latestStatus
+                "Monitoring alert skipped. key={}, latestRunDate={}, latestStatus={}, now={}",
+                alertKey, latestRunDate, latestStatus, now
             )
             return
         }
 
         val msg = buildString {
-            append("⚠️ *DMIB 미실행/실패 감지* ($today)\n")
-            append("• latestRunDate: ${latestRunDate ?: "null"}\n")
-            append("• latestStatus: ${latestStatus ?: "null"}\n")
-            append("• sentAt: ${latestSentAt ?: "null"}\n")
+            append("?�️ *DMIB 미실???�패 감�?* ($today)\n")
+            append("??latestRunDate: ${latestRunDate ?: "null"}\n")
+            append("??latestStatus: ${latestStatus ?: "null"}\n")
+            append("??sentAt: ${latestSentAt ?: "null"}\n")
             if (!latestError.isNullOrBlank()) {
-                append("• error: ${latestError.take(300)}\n")
+                append("??error: ${latestError.take(300)}\n")
             }
             append("\n조치:\n")
-            append("1) dmib logs 확인\n")
-            append("2) 외부 API/FRED/환율 응답 확인\n")
-            append("3) 필요 시 dmib restart")
+            append("1) dmib logs ?�인\n")
+            append("2) ?��? API/FRED/?�율 ?�답 ?�인\n")
+            append("3) ?�요 ??dmib restart")
         }
 
         slack.send(msg).subscribe()
         log.warn(
-            "Monitoring alert sent. today={}, latestRunDate={}, latestStatus={}",
-            today, latestRunDate, latestStatus
+            "Monitoring alert sent. today={}, latestRunDate={}, latestStatus={}, now={}",
+            today, latestRunDate, latestStatus, now
         )
+    }
+
+    private fun clearAlertState(alertKey: String) {
+        lastFallbackAlertAt = null
+
+        try {
+            alertStore.clear(alertKey)
+        } catch (e: Exception) {
+            log.warn(
+                "Failed to clear monitoring alert state. key={}, err={}",
+                alertKey,
+                e.message ?: e.javaClass.simpleName
+            )
+        }
     }
 }
