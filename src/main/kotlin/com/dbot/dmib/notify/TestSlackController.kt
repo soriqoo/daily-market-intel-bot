@@ -1,11 +1,13 @@
 ﻿package com.dbot.dmib.notify
 
 import com.dbot.dmib.config.AppProperties
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
 import reactor.core.publisher.Mono
 
 @RestController
+@ConditionalOnProperty(prefix = "app.internal-test", name = ["enabled"], havingValue = "true")
 class TestSlackController(
     private val props: AppProperties,
     private val slack: SlackNotifier?

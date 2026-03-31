@@ -6,12 +6,16 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 data class AppProperties(
     val timezone: String = "Asia/Seoul",
     val schedule: Schedule = Schedule(),
+    val internalTest: InternalTest = InternalTest(),
     val openai: OpenAi = OpenAi(),
     val slack: Slack = Slack(),
     val mail: Mail = Mail(),
 ) {
     data class Schedule(
         val cron: String = "0 0 8 * * *"
+    )
+    data class InternalTest(
+        val enabled: Boolean = false
     )
     data class OpenAi(
         val enabled: Boolean = false,
