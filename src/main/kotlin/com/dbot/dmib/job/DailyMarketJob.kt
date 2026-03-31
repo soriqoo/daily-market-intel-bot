@@ -1,4 +1,4 @@
-package com.dbot.dmib.job
+﻿package com.dbot.dmib.job
 
 import com.dbot.dmib.notify.SlackNotifier
 import com.dbot.dmib.store.RunStore
@@ -44,7 +44,7 @@ class DailyMarketJob(
 
                 if (rr.metrics.isEmpty()) {
                     val errText = ":warning: DMIB FAILED ($runDate) - no metrics available.\n" +
-                            rr.errors.joinToString("\n") { "• $it" }.ifBlank { "• unknown error" }
+                        rr.errors.joinToString("\n") { "- $it" }.ifBlank { "- unknown error" }
 
                     runStore.markFailed(runDate, payloadHash = hash, error = errText)
                     return@flatMap slack.send(errText)

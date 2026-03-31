@@ -2,6 +2,8 @@
   timezone: "Asia/Seoul"
   schedule:
     cron: "0 0 8 * * *"
+  internal-test:
+    enabled: "${INTERNAL_TEST_ENABLED:false}"
   monitoring:
     check-cron: "0 */10 8-11 * * *"
   ai:
