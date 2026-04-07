@@ -11,6 +11,8 @@ services:
       - dmib_pg:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:15432:5432"
+    networks:
+      - dmib-internal
 
   dmib:
     build: .
@@ -38,6 +40,15 @@ services:
       - MAIL_TO=${MAIL_TO}
       - GMAIL_USERNAME=${GMAIL_USERNAME}
       - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
+    networks:
+      - dmib-internal
+      - monitoring-shared
 
 volumes:
   dmib_pg:
+
+networks:
+  dmib-internal:
+  monitoring-shared:
+    name: bot-monitoring
+    external: true
