@@ -87,7 +87,7 @@ class MarketReportService(
                                 runDate = runDate,
                                 metrics = metrics,
                                 errors = errors,
-                                slackText = "$baseText\n\n*AI Analysis*\n- AI 분석 호출 실패: ${e.message ?: e.javaClass.simpleName}"
+                                slackText = "$baseText\n\n:warning: *AI Analysis*\n- AI 분석 호출 실패: ${e.message ?: e.javaClass.simpleName}"
                             )
                         )
                     }
@@ -117,58 +117,58 @@ class MarketReportService(
             v?.setScale(2, RoundingMode.HALF_UP)?.toPlainString() ?: "-"
 
         val headline = buildList {
-            sp?.changePct?.let { add("S&P ${direction(it)} ${pct(sp)}") }
-            nq?.changePct?.let { add("Nasdaq ${direction(it)} ${pct(nq)}") }
+            sp?.changePct?.let { add("S&P ${directionSymbol(it)} ${pct(sp)}") }
+            nq?.changePct?.let { add("Nasdaq ${directionSymbol(it)} ${pct(nq)}") }
             fx?.value?.let { add("환율 ${num0(it)}원") }
             y10?.value?.let { add("10Y ${num2(it)}%") }
         }.takeIf { it.isNotEmpty() }?.joinToString(" | ") ?: "데이터 수집 중"
 
         val metricLines = buildList {
-            sp?.let { add("- S&P 500: ${num2(it.value)} pt (${delta(it)} / ${pct(it)})") } ?: add("- S&P 500: N/A")
-            nq?.let { add("- Nasdaq: ${num2(it.value)} pt (${delta(it)} / ${pct(it)})") } ?: add("- Nasdaq: N/A")
-            fx?.let { add("- USDKRW: ${num0(it.value)} 원/달러") } ?: add("- USDKRW: N/A")
-            y10?.let { add("- US 10Y: ${num2(it.value)} %") } ?: add("- US 10Y: N/A")
+            sp?.let { add("• S&P 500: ${num2(it.value)} pt (Δ ${delta(it)} / ${pct(it)})") } ?: add("• S&P 500: N/A")
+            nq?.let { add("• Nasdaq: ${num2(it.value)} pt (Δ ${delta(it)} / ${pct(it)})") } ?: add("• Nasdaq: N/A")
+            fx?.let { add("• USDKRW: ${num0(it.value)} 원/달러") } ?: add("• USDKRW: N/A")
+            y10?.let { add("• US 10Y: ${num2(it.value)} %") } ?: add("• US 10Y: N/A")
         }
 
         val interpretationLines = buildInterpretations(sp, nq, fx, y10)
             .ifEmpty { listOf("특이 신호 없음") }
-            .map { "- $it" }
+            .map { "• $it" }
 
         val actionLines = buildActions(sp, nq, fx, y10)
             .ifEmpty { listOf("추가 점검 항목 없음") }
-            .map { "- $it" }
+            .map { "• $it" }
 
         val errorLines = if (errors.isEmpty()) {
-            listOf("- none")
+            listOf("• none")
         } else {
-            errors.map { "- $it" }
+            errors.map { "• $it" }
         }
 
         return buildList {
-            add("*DMIB Morning Brief* ($runDate)")
+            add(":bar_chart: *DMIB Morning Brief* ($runDate)")
             add("")
             add("*Headline*")
             add(headline)
             add("")
-            add("*Metrics*")
+            add(":pushpin: *Metrics*")
             addAll(metricLines)
             add("")
-            add("*Interpretation*")
+            add(":compass: *Interpretation*")
             addAll(interpretationLines)
             add("")
-            add("*Action Items*")
+            add(":dart: *Action Items*")
             addAll(actionLines)
             add("")
-            add("*Fetch Errors*")
+            add(if (errors.isEmpty()) ":white_check_mark: *Fetch Errors*" else ":warning: *Fetch Errors*")
             addAll(errorLines)
         }.joinToString("\n")
     }
 
-    private fun direction(pct: BigDecimal): String =
+    private fun directionSymbol(pct: BigDecimal): String =
         when {
-            pct > BigDecimal.ZERO -> "상승"
-            pct < BigDecimal.ZERO -> "하락"
-            else -> "보합"
+            pct > BigDecimal.ZERO -> "▲"
+            pct < BigDecimal.ZERO -> "▼"
+            else -> "="
         }
 
     private fun buildInterpretations(
@@ -297,8 +297,8 @@ class MarketReportService(
         val raw = aiJson["rawText"]?.asText()
         if (!raw.isNullOrBlank()) {
             return listOf(
-                "*AI Analysis*",
-                "- $raw"
+                ":robot_face: *AI Analysis*",
+                "• $raw"
             ).joinToString("\n")
         }
 
@@ -308,20 +308,21 @@ class MarketReportService(
         val actions = aiJson["actionItems"]?.mapNotNull { it.asText() }?.take(3).orEmpty()
 
         fun bullets(items: List<String>, emptyText: String): List<String> =
-            if (items.isEmpty()) listOf("- $emptyText") else items.map { "- $it" }
+            if (items.isEmpty()) listOf("• $emptyText") else items.map { "• $it" }
 
         return buildList {
-            add("*AI Analysis*")
+            add(":robot_face: *AI Analysis*")
             add("")
-            add("오늘 시장 신호: *$signal*")
+            add(":compass: *오늘 시장 신호*")
+            add("• *$signal*")
             add("")
-            add("핵심 요약")
+            add(":pushpin: *핵심 요약*")
             addAll(bullets(summary, "요약 없음"))
             add("")
-            add("리스크 요인")
+            add(":warning: *리스크 요인*")
             addAll(bullets(risks, "리스크 없음"))
             add("")
-            add("행동 제안")
+            add(":dart: *행동 제안*")
             addAll(bullets(actions, "행동 제안 없음"))
         }.joinToString("\n")
     }
