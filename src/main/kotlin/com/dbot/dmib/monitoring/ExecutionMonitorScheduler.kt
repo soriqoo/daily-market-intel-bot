@@ -82,16 +82,16 @@ class ExecutionMonitorScheduler(
 
         val msg = buildString {
             append(":warning: *DMIB 미실행/실패 감지* ($today)\n")
-            append("- latestRunDate: ${latestRunDate ?: "null"}\n")
-            append("- latestStatus: ${latestStatus ?: "null"}\n")
-            append("- sentAt: ${latestSentAt ?: "null"}\n")
+            append("• latestRunDate: ${latestRunDate ?: "null"}\n")
+            append("• latestStatus: ${latestStatus ?: "null"}\n")
+            append("• sentAt: ${latestSentAt ?: "null"}\n")
             if (!latestError.isNullOrBlank()) {
-                append("- error: ${latestError.take(300)}\n")
+                append("• error: ${latestError.take(300)}\n")
             }
-            append("\n조치:\n")
-            append("1) dmib logs 확인\n")
+            append("\n:hammer_and_wrench: *조치*\n")
+            append("1) `dmib logs` 확인\n")
             append("2) 외부 API/FRED/환율 응답 확인\n")
-            append("3) 필요 시 dmib restart")
+            append("3) 필요 시 `dmib restart`\n")
         }
 
         slack.send(msg).subscribe()
