@@ -18,10 +18,10 @@ class WebClientConfig {
     fun webClient(): WebClient {
         val httpClient = HttpClient.create()
             .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 3000)
-            .responseTimeout(Duration.ofSeconds(15))
+            .responseTimeout(Duration.ofSeconds(30))
             .doOnConnected { conn ->
-                conn.addHandlerLast(ReadTimeoutHandler(15))
-                conn.addHandlerLast(WriteTimeoutHandler(15))
+                conn.addHandlerLast(ReadTimeoutHandler(30))
+                conn.addHandlerLast(WriteTimeoutHandler(30))
             }
 
         // FRED CSV 등 비교적 큰 응답(기본 256KB 제한 해제)
