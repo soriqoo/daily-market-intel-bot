@@ -39,28 +39,28 @@ class MarketReportService(
             .map { (latest, prev) -> Metric("S&P 500", MetricType.INDEX, runDate, latest, prev) }
             .map { MetricResult(it, null) }
             .onErrorResume { e ->
-                Mono.just(MetricResult(null, "S&P500 fetch failed: ${e.message ?: e.javaClass.simpleName}"))
+                Mono.just(MetricResult(null, formatFetchError("S&P500", e)))
             }
 
         val nasdaq = fred.fetchLatestAndPrev("NASDAQCOM")
             .map { (latest, prev) -> Metric("Nasdaq", MetricType.INDEX, runDate, latest, prev) }
             .map { MetricResult(it, null) }
             .onErrorResume { e ->
-                Mono.just(MetricResult(null, "Nasdaq fetch failed: ${e.message ?: e.javaClass.simpleName}"))
+                Mono.just(MetricResult(null, formatFetchError("Nasdaq", e)))
             }
 
         val usdkrw = fx.fetchUsdKrw()
             .map { latest -> Metric("USDKRW", MetricType.FX, runDate, latest, null) }
             .map { MetricResult(it, null) }
             .onErrorResume { e ->
-                Mono.just(MetricResult(null, "USDKRW fetch failed: ${e.message ?: e.javaClass.simpleName}"))
+                Mono.just(MetricResult(null, formatFetchError("USDKRW", e)))
             }
 
         val y10 = fred.fetchLatestAndPrev("DGS10")
             .map { (latest, prev) -> Metric("US 10Y", MetricType.YIELD, runDate, latest, prev) }
             .map { MetricResult(it, null) }
             .onErrorResume { e ->
-                Mono.just(MetricResult(null, "US10Y fetch failed: ${e.message ?: e.javaClass.simpleName}"))
+                Mono.just(MetricResult(null, formatFetchError("US10Y", e)))
             }
 
         return Mono.zip(sp500, nasdaq, usdkrw, y10)
@@ -328,4 +328,25 @@ class MarketReportService(
     }
 
     private fun BigDecimal.abs(): BigDecimal = this.abs()
+}
+
+internal fun formatFetchError(source: String, error: Throwable): String {
+    val rawMessage = error.message ?: error.javaClass.simpleName
+    val friendlyMessage = when {
+        rawMessage.contains("Retries exhausted", ignoreCase = true) ->
+            "응답 지연으로 재시도 3회 후 실패"
+
+        rawMessage.contains("ReadTimeout", ignoreCase = true) ->
+            "응답 지연(timeout)으로 실패"
+
+        rawMessage.contains("ConnectTimeout", ignoreCase = true) ->
+            "연결 지연(timeout)으로 실패"
+
+        rawMessage.contains("UnknownHost", ignoreCase = true) ->
+            "호스트 주소를 찾지 못해 실패"
+
+        else -> rawMessage
+    }
+
+    return "$source fetch failed: $friendlyMessage"
 }
