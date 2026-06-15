@@ -7,15 +7,16 @@ import reactor.core.publisher.Mono
 import reactor.util.retry.Retry
 import java.math.BigDecimal
 import java.time.Duration
+import java.time.LocalDate
 
 class FredClient(private val webClient: WebClient) {
 
     /**
-     * FRED graph CSV에서 seriesId의 최신값/직전값을 가져온다.
-     * - 네트워크 계열 오류(WebClientRequestException)는 재시도(backoff)
+     * FRED graph CSV에서 최신값과 직전 유효값을 가져온다.
+     * 일부 장기 시계열은 전체 CSV 응답이 느려 최근 2년 범위만 조회한다.
      */
     fun fetchLatestAndPrev(seriesId: String): Mono<Pair<BigDecimal, BigDecimal?>> {
-        val url = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=$seriesId"
+        val url = fredGraphUrl(seriesId)
 
         return webClient.get()
             .uri(url)
@@ -30,8 +31,8 @@ class FredClient(private val webClient: WebClient) {
 
                     val csv = body.trim()
                     val okHeader = csv.startsWith("observation_date,") ||
-                            csv.startsWith("DATE,") ||
-                            csv.startsWith("Date,")
+                        csv.startsWith("DATE,") ||
+                        csv.startsWith("Date,")
 
                     if (!okHeader) {
                         val snippet = csv.take(200).replace("\n", "\\n")
@@ -51,10 +52,9 @@ class FredClient(private val webClient: WebClient) {
                         error("FRED CSV too short for $seriesId, snippet=$snippet")
                     }
 
-                    val last: BigDecimal = rows.last().second.toBigDecimal()
-                    val prev: BigDecimal? = rows[rows.size - 2].second.toBigDecimal()  // ✅ nullable로 맞춤
+                    val last = rows.last().second.toBigDecimal()
+                    val prev: BigDecimal? = rows[rows.size - 2].second.toBigDecimal()
 
-                    // ✅ Pair<BigDecimal, BigDecimal?>로 반환
                     Pair(last, prev)
                 }
             }
@@ -63,5 +63,10 @@ class FredClient(private val webClient: WebClient) {
                     .maxBackoff(Duration.ofSeconds(3))
                     .filter { it is WebClientRequestException }
             )
+    }
+
+    internal fun fredGraphUrl(seriesId: String, today: LocalDate = LocalDate.now()): String {
+        val startDate = today.minusYears(2)
+        return "https://fred.stlouisfed.org/graph/fredgraph.csv?id=$seriesId&cosd=$startDate"
     }
 }
